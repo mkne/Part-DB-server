@@ -27,179 +27,302 @@ use App\Services\InfoProviderSystem\DTOs\PartDetailDTO;
 use App\Services\InfoProviderSystem\DTOs\PriceDTO;
 use App\Services\InfoProviderSystem\DTOs\PurchaseInfoDTO;
 use App\Services\InfoProviderSystem\DTOs\SearchResultDTO;
-use Facebook\WebDriver\Chrome\ChromeOptions;
-use Facebook\WebDriver\WebDriverDimension;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\Panther\Client;
-use Symfony\Component\Panther\DomCrawler\Link;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class AliexpressProvider implements InfoProviderInterface
 {
-
-    private readonly string $chromiumDriverPath;
-
-    public function __construct(private readonly HttpClientInterface $client,
-        #[Autowire('%kernel.project_dir%')]
-        private readonly string $projectDir)
-    {
-        $this->chromiumDriverPath = $this->projectDir . '/drivers/chromedriver.exe';
+    public function __construct(
+        private readonly HttpClientInterface $client,
+    ) {
     }
 
     public function getProviderInfo(): array
     {
         return [
             'name' => 'Aliexpress',
-            'description' => 'Webscrapping from aliexpress.com to get part information',
+            'description' => 'Web scraping from aliexpress.com to get part information.',
             'url' => 'https://aliexpress.com/',
-            'disabled_help' => 'Set PROVIDER_ALIEXPRESS_ENABLED env to 1'
+            'disabled_help' => 'Enable this provider in the Part-DB configuration.',
         ];
     }
 
     public function getProviderKey(): string
     {
-        return "aliexpress";
+        return 'aliexpress';
     }
 
     public function isActive(): bool
     {
+        // Always active; you can later wire this to settings / env if desired.
         return true;
     }
 
-    public function getBaseURL(): string
+    private function getBaseURL(): string
     {
-        //Without the trailing slash
+        // Without the trailing slash
         return 'https://de.aliexpress.com';
     }
 
+    /**
+     * @return SearchResultDTO[]
+     */
     public function searchByKeyword(string $keyword): array
     {
+        $keyword = trim($keyword);
+        if ($keyword === '') {
+            return [];
+        }
+
+        // AliExpress uses SEO search URLs, but the "old" wholesale endpoint mit Queryparametern
         $response = $this->client->request('GET', $this->getBaseURL() . '/wholesale', [
             'query' => [
                 'SearchText' => $keyword,
                 'CatId' => 0,
                 'd' => 'y',
-                ]
-            ]
-        );
+            ],
+            'headers' => [
+                'User-Agent' => 'Part-DB-AliexpressProvider/1.0',
+                'Accept-Language' => 'de-DE,de;q=0.9,en;q=0.8',
+            ],
+        ]);
 
         $content = $response->getContent();
-        $dom = new Crawler($content);
+        $dom = new Crawler($content, $this->getBaseURL() . '/wholesale');
 
         $results = [];
 
-        //Iterate over each div.search-item-card-wrapper-gallery
-        $dom->filter('div.search-item-card-wrapper-gallery')->each(function (Crawler $node) use (&$results) {
+        // Each result card: <div class="hr_bm search-item-card-wrapper-gallery"> ... </div>
+        $dom->filter('div.search-item-card-wrapper-gallery')->each(
+            function (Crawler $node) use (&$results): void {
+                // Link to product or SSR bundle
+                $linkNode = $node->filter('a.search-card-item')->first();
+                if ($linkNode->count() === 0) {
+                    return;
+                }
 
-            $productURL = $this->cleanProductURL($node->filter("a")->first()->attr('href'));
-            $productID = $this->extractProductID($productURL);
+                $href = $linkNode->attr('href');
+                if ($href === null || $href === '') {
+                    return;
+                }
 
-            //Skip results where we cannot extract a product ID
-            if ($productID === null) {
-                return;
+                // Make URL absolute and strip query string (for display)
+                $productURL = $this->cleanProductURL($href);
+
+                // Try to get a numeric product ID (for /item/{id}.html later)
+                $productID = $this->extractProductID($href);
+                if ($productID === null) {
+                    // If we cannot extract a stable ID, skip this result
+                    return;
+                }
+
+                // Title: AliExpress cards often use <h1> / <h2> / <h3> or div[title]
+                $name = null;
+                if ($node->filter('div[title]')->count() > 0) {
+                    $name = trim($node->filter('div[title]')->first()->attr('title') ?? '');
+                } elseif ($node->filter('h1, h2, h3')->count() > 0) {
+                    $name = trim($node->filter('h1, h2, h3')->first()->text(''));
+                }
+
+                if ($name === null || $name === '') {
+                    // No usable title -> skip
+                    return;
+                }
+
+                // Preview image
+                $imgUrl = null;
+                if ($node->filter('img.product-img, img')->count() > 0) {
+                    $imgUrl = $node->filter('img.product-img, img')->first()->attr('src') ?? null;
+                }
+
+                if ($imgUrl !== null && str_starts_with($imgUrl, '//')) {
+                    $imgUrl = 'https:' . $imgUrl;
+                }
+
+                $results[] = new SearchResultDTO(
+                    provider_key: $this->getProviderKey(),
+                    provider_id: $productID,
+                    name: $name,
+                    description: '',
+                    category: null,
+                    manufacturer: null,
+                    mpn: null,
+                    preview_image_url: $imgUrl,
+                    manufacturing_status: null,
+                    provider_url: $productURL,
+                    footprint: null,
+                );
             }
-
-            $results[] = new SearchResultDTO(
-                provider_key: $this->getProviderKey(),
-                provider_id: $productID,
-                name: $node->filter("div[title]")->attr('title'),
-                description: "",
-                preview_image_url: $node->filter("img")->first()->attr('src'),
-                provider_url: $productURL
-            );
-        });
+        );
 
         return $results;
     }
 
     private function cleanProductURL(string $url): string
     {
-        //Strip the query string
-        return explode('?', $url)[0];
+        // Make relative URLs absolute
+        if (str_starts_with($url, '//')) {
+            $url = 'https:' . $url;
+        } elseif (str_starts_with($url, '/')) {
+            $url = rtrim($this->getBaseURL(), '/') . $url;
+        }
+
+        // Strip query string for nicer display, keep base path
+        $parts = explode('?', $url, 2);
+
+        return $parts[0];
     }
 
+    /**
+     * Extracts a numeric AliExpress product ID from various URL formats.
+     *
+     * Supported patterns:
+     *  - /item/1005006063706718.html
+     *  - /ssr/...BundleDeals2?productIds=1005006063706718:12000036624981621&...
+     */
     private function extractProductID(string $url): ?string
     {
-        //We want the numeric id from the url before the .html
-        $matches = [];
-        preg_match('/\/(\d+)\.html/', $url, $matches);
+        // 1) Classic /item/{id}.html
+        if (preg_match('/\/(\d+)\.html/', $url, $matches) === 1) {
+            return $matches[1];
+        }
 
-        return $matches[1] ?? null;
+        // 2) SSR URLs: productIds=1005006063706718:12000036624981621,...
+        $parts = parse_url($url);
+        if (!isset($parts['query'])) {
+            return null;
+        }
+
+        parse_str($parts['query'], $query);
+        if (empty($query['productIds'])) {
+            return null;
+        }
+
+        // productIds can be a comma-separated list, each entry possibly with ":"
+        // Take first non-empty numeric part
+        $productIds = explode(',', (string) $query['productIds']);
+        foreach ($productIds as $entry) {
+            $entry = trim($entry);
+            if ($entry === '') {
+                continue;
+            }
+
+            // E.g. "1005006063706718:12000036624981621"
+            $firstPart = explode(':', $entry)[0];
+            if (ctype_digit($firstPart)) {
+                return $firstPart;
+            }
+        }
+
+        return null;
     }
 
     public function getDetails(string $id): PartDetailDTO
     {
-        //Ensure that $id is numeric
-        if (!is_numeric($id)) {
-            throw new \InvalidArgumentException("The id must be numeric");
+        if (!ctype_digit($id)) {
+            throw new \InvalidArgumentException('The id must be numeric.');
         }
 
-        $product_page = $this->getBaseURL() . "/item/{$id}.html";
-        //Create panther client
-        $chromeOptions = new ChromeOptions();
-        //Disable W3C mode, to avoid issues with getting html() from elements. See https://github.com/symfony/panther/issues/478
-        $chromeOptions->setExperimentalOption('w3c', false);
+        $productUrl = $this->getBaseURL() . '/item/' . $id . '.html';
 
-        $client = Client::createChromeClient( $this->chromiumDriverPath, options: ['capabilities' => [ChromeOptions::CAPABILITY =>  $chromeOptions]]);
-        $client->manage()->deleteAllCookies();
-        $client->manage()->window()->setSize(new WebDriverDimension(1920, 1080));
+        $response = $this->client->request('GET', $productUrl, [
+            'headers' => [
+                'User-Agent' => 'Part-DB-AliexpressProvider/1.0',
+                'Accept-Language' => 'de-DE,de;q=0.9,en;q=0.8',
+            ],
+        ]);
 
+        $html = $response->getContent();
+        $crawler = new Crawler($html, $productUrl);
 
-        $client->request('GET', $product_page );
+        // --- Name / Title ----------------------------------------------------
+        $name = $this->firstAttr($crawler, 'meta[property="og:title"]', 'content');
+        if ($name === null && $crawler->filter('h1')->count() > 0) {
+            $name = trim($crawler->filter('h1')->first()->text(''));
+        }
+        if ($name === null || $name === '') {
+            $name = $id;
+        }
 
-        //Dismiss cookie consent
-        $dom = $client->waitFor('div.global-gdpr-wrap button.btn-accept');
-        $dom->filter('div.global-gdpr-wrap button.btn-accept')->first()->click();
+        // --- Short description ----------------------------------------------
+        $shortDescription = $this->firstAttr($crawler, 'meta[property="og:description"]', 'content');
 
-        $dom = $client->waitFor('h1[data-pl="product-title"]');
-        $name = $dom->filter('h1[data-pl="product-title"]')->text();
+        // --- Long description ("notes") -------------------------------------
+        $notesHtml = null;
+        if ($crawler->filter('#product-description')->count() > 0) {
+            try {
+                $notesHtml = $crawler->filter('#product-description')->html();
+                // Strip <script> tags to avoid weird output
+                $notesHtml = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $notesHtml ?? '') ?: null;
+            } catch (\Throwable) {
+                // If html() fails (malformed DOM), we simply ignore notes
+                $notesHtml = null;
+            }
+        }
 
+        // --- Image -----------------------------------------------------------
+        $imageUrl = $this->firstAttr($crawler, 'meta[property="og:image"]', 'content');
+        if ($imageUrl !== null && str_starts_with($imageUrl, '//')) {
+            $imageUrl = 'https:' . $imageUrl;
+        }
 
-        //Click on the description button
-        $dom->filter('a[href="#nav-description"]')->first()->click();
-        //$client->clickLink('Übersicht');
+        // --- Price & Vendor info --------------------------------------------
+        $priceValue = $this->firstAttr($crawler, 'meta[property="og:price:amount"]', 'content');
+        $currency = $this->firstAttr($crawler, 'meta[property="og:price:currency"]', 'content') ?? 'USD';
 
-        $dom = $client->waitFor('#product-description');
-        $description = $dom->filter('#product-description')->html();
+        $prices = [];
+        if ($priceValue !== null && $priceValue !== '') {
+            // Normalize decimal separators
+            $normalized = str_replace(',', '.', $priceValue);
 
-        //Remove any script tags. This is just to prevent any weird output in the notes field, this is not really a security measure
-        $description = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', "", $description);
+            if (!is_numeric($normalized)) {
+                if (preg_match('/([\d.,]+)/', $priceValue, $m) === 1) {
+                    $normalized = str_replace(',', '.', $m[1]);
+                }
+            }
 
-        //Find price
-        $dom = $client->waitFor('span.product-price-value');
-        $price_str = $dom->filter('span.product-price-value')->text();
-        //Try to extract the price from the text
-        $matches = [];
-        preg_match('/([\d,\.]+)/', $price_str, $matches);
+            $prices[] = new PriceDTO(
+                minimum_discount_amount: 1,
+                price: (string) $normalized,
+                currency_iso_code: $currency,
+                includes_tax: false
+            );
+        }
 
-        //Try to parse the price as a float
-        $price = str_replace(',', '.', $matches[1] ?? '0');
-
-        $client->quit();
-
-        $price = new PriceDTO(
-            minimum_discount_amount: 1,
-            price: $price,
-            currency_iso_code: "EUR"
-        );
-
-        $vendor_info = new PurchaseInfoDTO(
-            distributor_name: "Aliexpress",
-            order_number: $id,
-            prices: [$price],
-            product_url: $product_page
-        );
+        $vendorInfos = [];
+        if ($prices !== []) {
+            $vendorInfos[] = new PurchaseInfoDTO(
+                distributor_name: 'Aliexpress',
+                order_number: $id,
+                prices: $prices,
+                product_url: $productUrl
+            );
+        }
 
         return new PartDetailDTO(
             provider_key: $this->getProviderKey(),
             provider_id: $id,
             name: $name,
-            description: "",
-            provider_url: $product_page,
-            notes: $description,
-            vendor_infos: [$vendor_info]
+            description: $shortDescription ?? '',
+            preview_image_url: $imageUrl,
+            provider_url: $productUrl,
+            notes: $notesHtml ?? $shortDescription,
+            vendor_infos: $vendorInfos
         );
+    }
+
+    /**
+     * Helper to read the first matching attribute from a selector.
+     */
+    private function firstAttr(Crawler $crawler, string $selector, string $attribute): ?string
+    {
+        if ($crawler->filter($selector)->count() === 0) {
+            return null;
+        }
+
+        $value = $crawler->filter($selector)->first()->attr($attribute);
+
+        return $value !== null && $value !== '' ? $value : null;
     }
 
     public function getCapabilities(): array
