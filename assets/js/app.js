@@ -28,7 +28,7 @@ import '../css/app/treeview.css';
 import '../css/app/images.css';
 
 // start the Stimulus application
-import '../bootstrap';
+import '../stimulus_bootstrap';
 
 // Need jQuery? Install it with "yarn add jquery", then uncomment to require it.
 const $ = require('jquery');
@@ -49,7 +49,7 @@ window.$ = window.jQuery = require("jquery");
 //Use the local WASM file for the ZXing library
 import {
     setZXingModuleOverrides,
-} from "barcode-detector/pure";
+} from "barcode-detector/ponyfill";
 import  wasmFile from "../../node_modules/zxing-wasm/dist/reader/zxing_reader.wasm";
 setZXingModuleOverrides({
     locateFile: (path, prefix) => {

@@ -27,6 +27,7 @@ use App\Entity\Attachments\AttachmentType;
 use App\Entity\Attachments\PartAttachment;
 use App\Entity\Base\AbstractDBElement;
 use App\Entity\Parameters\PartParameter;
+use App\Entity\Parts\PartCustomState;
 use App\Entity\ProjectSystem\Project;
 use App\Entity\LabelSystem\LabelProfile;
 use App\Entity\Parts\Category;
@@ -107,6 +108,7 @@ class EntityURLGenerator
             MeasurementUnit::class => 'measurement_unit_edit',
             Group::class => 'group_edit',
             LabelProfile::class => 'label_profile_edit',
+            PartCustomState::class => 'part_custom_state_edit',
         ];
 
         try {
@@ -156,8 +158,10 @@ class EntityURLGenerator
 
     public function viewURL(Attachment $entity): string
     {
-        if ($entity->hasInternal()) {
-            return $this->attachmentURLGenerator->getInternalViewURL($entity);
+        //If the underlying file path is invalid, null gets returned, which is not allowed here.
+        //We still have the chance to use an external path, if it is set.
+        if ($entity->hasInternal() && ($url = $this->attachmentURLGenerator->getInternalViewURL($entity)) !== null) {
+            return $url;
         }
 
         if($entity->hasExternal()) {
@@ -211,6 +215,7 @@ class EntityURLGenerator
             MeasurementUnit::class => 'measurement_unit_edit',
             Group::class => 'group_edit',
             LabelProfile::class => 'label_profile_edit',
+            PartCustomState::class => 'part_custom_state_edit',
         ];
 
         return $this->urlGenerator->generate($this->mapToController($map, $entity), ['id' => $entity->getID()]);
@@ -241,6 +246,7 @@ class EntityURLGenerator
             MeasurementUnit::class => 'measurement_unit_edit',
             Group::class => 'group_edit',
             LabelProfile::class => 'label_profile_edit',
+            PartCustomState::class => 'part_custom_state_edit',
         ];
 
         return $this->urlGenerator->generate($this->mapToController($map, $entity), ['id' => $entity->getID()]);
@@ -272,6 +278,7 @@ class EntityURLGenerator
             MeasurementUnit::class => 'measurement_unit_new',
             Group::class => 'group_new',
             LabelProfile::class => 'label_profile_new',
+            PartCustomState::class => 'part_custom_state_new',
         ];
 
         return $this->urlGenerator->generate($this->mapToController($map, $entity));
@@ -303,6 +310,7 @@ class EntityURLGenerator
             MeasurementUnit::class => 'measurement_unit_clone',
             Group::class => 'group_clone',
             LabelProfile::class => 'label_profile_clone',
+            PartCustomState::class => 'part_custom_state_clone',
         ];
 
         return $this->urlGenerator->generate($this->mapToController($map, $entity), ['id' => $entity->getID()]);
@@ -348,6 +356,7 @@ class EntityURLGenerator
             MeasurementUnit::class => 'measurement_unit_delete',
             Group::class => 'group_delete',
             LabelProfile::class => 'label_profile_delete',
+            PartCustomState::class => 'part_custom_state_delete',
         ];
 
         return $this->urlGenerator->generate($this->mapToController($map, $entity), ['id' => $entity->getID()]);

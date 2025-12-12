@@ -7,7 +7,7 @@ nav_order: 10
 
 # Nginx
 
-You can also use [nginx](https://www.nginx.com/) as webserver for Part-DB. Setup Part-DB with apache is a bit easier, so
+You can also use [nginx](https://www.nginx.com/) as webserver for Part-DB. Setting up Part-DB with Apache is a bit easier, so
 this is the method shown in the guides. This guide assumes that you already have a working nginx installation with PHP
 configured.
 
@@ -51,6 +51,11 @@ server {
 
     location ~ \.php$ {
         return 404;
+    }
+    
+    # Set Content-Security-Policy for svg files, to block embedded javascript in there
+    location ~* \.svg$ {
+        add_header Content-Security-Policy "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';";
     }
 
     error_log /var/log/nginx/parts.error.log;

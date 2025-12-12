@@ -6,17 +6,25 @@ nav_order: 4
 
 # Getting started
 
-After Part-DB you should begin with customizing the settings, and setting up the basic structures.
+After installing Part-DB, you should begin with customizing the settings and setting up the basic structures.
 Before starting, it's useful to read a bit about the [concepts of Part-DB]({% link concepts.md %}).
 
 1. TOC
 {:toc}
 
-## Customize config files
+## Customize system settings
 
-Before you start creating data structures, you should configure Part-DB to your needs by changing possible configuration
-options.
-This is done either via changing the `.env.local` file in a direct installation or by changing the env variables in
+Before starting creating data structures, you should check the system settings to ensure that they fit your needs.
+After logging in as an administrator, you can find the settings in the sidebar under `Tools -> System -> Settings`.
+![image]({% link assets/getting_started/system_settings.png %})
+
+Here you can change various settings, like the name of your Part-DB instance (which is shown in the title bar of the
+browser), the default language (which is used if no user preference is set), the default timezone (which is used to
+display times correctly), the default currency (which is used to display prices correctly), and many more.
+
+Some more fundamental settings like database connection, mail server settings, SSO, etc. are configured via environment variables.
+Environment variables also allow to overwrite various settings from the web interface.
+Environment variables can be changed by editing the `.env.local` file in a direct installation or by changing the env variables in
 your `docker-compose.yaml` file.
 A list of possible configuration options can be found [here]({% link configuration.md %}).
 
@@ -27,9 +35,9 @@ the navigation bar drop-down with the user symbol).
 
 ![image]({% link assets/getting_started/change_password.png %})
 
-There you can also find the option, to set up Two-Factor Authentication methods like Google Authenticator. Using this is
+There you can also find the option to set up Two-Factor Authentication methods like Google Authenticator. Using this is
 highly recommended (especially if you have admin permissions) to increase the security of your account. (Two-factor authentication 
-even can be enforced for all members of a user group)
+can even be enforced for all members of a user group)
 
 In the user settings panel, you can change account info like your username, your first and last name (which will be
 shown alongside your username to identify you better), department information, and your email address. The email address
@@ -44,8 +52,8 @@ used.
 
 ## (Optional) Customize homepage banner
 
-The banner which is shown on the homepage, can be customized/changed by changing the `config/banner.md` file with a text
-editor. You can use markdown and (safe) HTML here, to style and customize the banner.
+The banner which is shown on the homepage, can be customized/changed via the homepage banner setting in system settings. 
+You can use markdown and (safe) HTML here, to style and customize the banner.
 You can even use LaTeX-style equations by wrapping the expressions into `$` (like `$E=mc^2$`, which is rendered inline:
 $E=mc^2$) or `$$` (like `$$E=mc^2$$`) which will be rendered as a block, like so: $$E=mc^2$$
 
@@ -56,7 +64,7 @@ $E=mc^2$) or `$$` (like `$$E=mc^2$$`) which will be rendered as a block, like so
 When logged in as administrator, you can open the users menu in the `Tools` section of the sidebar
 under `System -> Users`.
 On this page you can create new users, change their passwords and settings, and change their permissions.
-For each user who should use Part-DB you should set up their own account so that tracking of what user did works
+For each user who should use Part-DB, you should set up their own account so that tracking of what each user did works
 properly.
 ![image]({% link assets/getting_started/user_admin.png %})
 
@@ -199,7 +207,7 @@ You have to enter at least a name for the part and choose a category for it, the
 However, it is recommended to fill out as much information as possible, as this will make it easier to find the part
 later.
 
-You can choose from your created datastructures to add manufacturer information, supplier information, etc. to the part.
-You can also create new datastructures on the fly, if you want to add additional information to the part, by typing the
-name of the new datastructure in the field and select the "New ..." option in the dropdown menu. See [tips]({% link
+You can choose from your created data structures to add manufacturer information, supplier information, etc. to the part.
+You can also create new data structures on the fly if you want to add additional information to the part, by typing the
+name of the new data structure in the field and selecting the "New ..." option in the dropdown menu. See [tips]({% link
 usage/tips_tricks.md %}) for more information.

@@ -34,10 +34,11 @@ use App\Entity\ProjectSystem\Project;
 use App\Helpers\Trees\TreeViewNode;
 use App\Helpers\Trees\TreeViewNodeIterator;
 use App\Repository\NamedDBElementRepository;
-use App\Repository\StructuralDBElementRepository;
 use App\Services\Cache\ElementCacheTagGenerator;
 use App\Services\Cache\UserCacheKeyGenerator;
+use App\Services\ElementTypeNameGenerator;
 use App\Services\EntityURLGenerator;
+use App\Settings\BehaviorSettings\SidebarSettings;
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use RecursiveIteratorIterator;
@@ -53,6 +54,10 @@ use function count;
  */
 class TreeViewGenerator
 {
+
+    private readonly bool $rootNodeExpandedByDefault;
+    private readonly bool $rootNodeEnabled;
+
     public function __construct(
         protected EntityURLGenerator $urlGenerator,
         protected EntityManagerInterface $em,
@@ -61,10 +66,11 @@ class TreeViewGenerator
         protected UserCacheKeyGenerator $keyGenerator,
         protected TranslatorInterface $translator,
         private readonly UrlGeneratorInterface $router,
-        protected bool $rootNodeExpandedByDefault,
-        protected bool $rootNodeEnabled,
-
+        private readonly SidebarSettings $sidebarSettings,
+        private readonly ElementTypeNameGenerator $elementTypeNameGenerator
     ) {
+        $this->rootNodeEnabled = $this->sidebarSettings->rootNodeEnabled;
+        $this->rootNodeExpandedByDefault = $this->sidebarSettings->rootNodeExpanded;
     }
 
     /**
@@ -174,10 +180,7 @@ class TreeViewGenerator
         }
 
         if (($mode === 'list_parts_root' || $mode === 'devices') && $this->rootNodeEnabled) {
-            //We show the root node as a link to the list of all parts
-            $show_all_parts_url = $this->router->generate('parts_show_all');
-
-            $root_node = new TreeViewNode($this->entityClassToRootNodeString($class), $show_all_parts_url, $generic);
+            $root_node = new TreeViewNode($this->entityClassToRootNodeString($class), $this->entityClassToRootNodeHref($class), $generic);
             $root_node->setExpanded($this->rootNodeExpandedByDefault);
             $root_node->setIcon($this->entityClassToRootNodeIcon($class));
 
@@ -187,17 +190,30 @@ class TreeViewGenerator
         return array_merge($head, $generic);
     }
 
+    protected function entityClassToRootNodeHref(string $class): ?string
+    {
+        //If the root node should redirect to the new entity page, we return the URL for the new entity.
+        if ($this->sidebarSettings->rootNodeRedirectsToNewEntity) {
+            return match ($class) {
+                Category::class => $this->router->generate('category_new'),
+                StorageLocation::class => $this->router->generate('store_location_new'),
+                Footprint::class => $this->router->generate('footprint_new'),
+                Manufacturer::class => $this->router->generate('manufacturer_new'),
+                Supplier::class => $this->router->generate('supplier_new'),
+                Project::class => $this->router->generate('project_new'),
+                default => null,
+            };
+        }
+
+        return match ($class) {
+            Project::class => $this->router->generate('project_new'),
+            default => $this->router->generate('parts_show_all')
+        };
+    }
+
     protected function entityClassToRootNodeString(string $class): string
     {
-        return match ($class) {
-            Category::class => $this->translator->trans('category.labelp'),
-            StorageLocation::class => $this->translator->trans('storelocation.labelp'),
-            Footprint::class => $this->translator->trans('footprint.labelp'),
-            Manufacturer::class => $this->translator->trans('manufacturer.labelp'),
-            Supplier::class => $this->translator->trans('supplier.labelp'),
-            Project::class => $this->translator->trans('project.labelp'),
-            default => $this->translator->trans('tree.root_node.text'),
-        };
+        return $this->elementTypeNameGenerator->typeLabelPlural($class);
     }
 
     protected function entityClassToRootNodeIcon(string $class): ?string

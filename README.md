@@ -3,7 +3,7 @@
 ![Static analysis](https://github.com/Part-DB/Part-DB-symfony/workflows/Static%20analysis/badge.svg)
 [![codecov](https://codecov.io/gh/Part-DB/Part-DB-server/branch/master/graph/badge.svg)](https://codecov.io/gh/Part-DB/Part-DB-server)
 ![GitHub License](https://img.shields.io/github/license/Part-DB/Part-DB-symfony)
-![PHP Version](https://img.shields.io/badge/PHP-%3E%3D%208.1-green)
+![PHP Version](https://img.shields.io/badge/PHP-%3E%3D%208.2-green)
 
 ![Docker Pulls](https://img.shields.io/docker/pulls/jbtronics/part-db1)
 ![Docker Build Status](https://github.com/Part-DB/Part-DB-symfony/workflows/Docker%20Image%20Build/badge.svg)
@@ -29,8 +29,8 @@ If you want to test Part-DB without installing it, you can use [this](https://de
 
 You can log in with username: *user* and password: *user*.
 
-Every change to the master branch gets automatically deployed, so it represents the current development progress and is
-may not completely stable. Please mind, that the free Heroku instance is used, so it can take some time when loading
+Every change to the master branch gets automatically deployed, so it represents the current development progress and
+may not be completely stable. Please mind, that the free Heroku instance is used, so it can take some time when loading
 the page
 for the first time.
 
@@ -75,10 +75,10 @@ Part-DB is also used by small companies and universities for managing their inve
 
 * A **web server** (like Apache2 or nginx) that is capable of
   running [Symfony 6](https://symfony.com/doc/current/reference/requirements.html),
-  this includes a minimum PHP version of **PHP 8.1**
+  this includes a minimum PHP version of **PHP 8.2**
 * A **MySQL** (at least 5.7) /**MariaDB** (at least 10.4) database server, or **PostgreSQL** 10+ if you do not want to use SQLite.
 * Shell access to your server is highly recommended!
-* For building the client-side assets **yarn** and **nodejs** (>= 18.0) is needed.
+* For building the client-side assets **yarn** and **nodejs** (>= 20.0) is needed.
 
 ## Installation
 
@@ -142,7 +142,7 @@ There you will find various methods to support development on a monthly or a one
 
 ## Built with
 
-* [Symfony 5](https://symfony.com/): The main framework used for the serverside PHP
+* [Symfony 6](https://symfony.com/): The main framework used for the serverside PHP
 * [Bootstrap 5](https://getbootstrap.com/) and [Bootswatch](https://bootswatch.com/): Used as website theme
 * [Fontawesome](https://fontawesome.com/): Used as icon set
 * [Hotwire Stimulus](https://stimulus.hotwired.dev/) and [Hotwire Turbo](https://turbo.hotwired.dev/): Frontend

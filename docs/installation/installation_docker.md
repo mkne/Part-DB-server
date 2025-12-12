@@ -47,6 +47,12 @@ services:
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/db/app.db
       # In docker env logs will be redirected to stderr
       - APP_ENV=docker
+      
+      # Uncomment this, if you want to use the automatic database migration feature. With this you have you do not have to
+      # run the doctrine:migrations:migrate commands on installation or upgrade. A database backup is written to the uploads/
+      # folder (under .automigration-backup), so you can restore it, if the migration fails.
+      # This feature is currently experimental, so use it at your own risk!
+      # - DB_AUTOMIGRATE=true
 
       # You can configure Part-DB using environment variables
       # Below you can find the most essential ones predefined
@@ -74,7 +80,11 @@ services:
       #- BANNER=This is a test banner<br>with a line break
     
       # If you use a reverse proxy in front of Part-DB, you must configure the trusted proxies IP addresses here (see reverse proxy documentation for more information):
-      # - TRUSTED_PROXIES=127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16  
+      # - TRUSTED_PROXIES=127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      
+      # If you need to install additional composer packages (e.g., for specific mailer transports), you can specify them here:
+      # The packages will be installed automatically when the container starts
+      # - COMPOSER_EXTRA_PACKAGES=symfony/mailgun-mailer symfony/sendgrid-mailer
 ```
 
 4. Customize the settings by changing the environment variables (or adding new ones). See [Configuration]({% link
@@ -130,29 +140,22 @@ services:
       # In docker env logs will be redirected to stderr
       - APP_ENV=docker
 
-      # You can configure Part-DB using environment variables
-      # Below you can find the most essential ones predefined
-      # However you can add add any other environment configuration you want here
+       # Uncomment this, if you want to use the automatic database migration feature. With this you do not have to
+       # run the doctrine:migrations:migrate commands on installation or upgrade. A database backup is written to the uploads/
+       # folder (under .automigration-backup), so you can restore it, if the migration fails.
+       # This feature is currently experimental, so use it at your own risk!
+       # - DB_AUTOMIGRATE=true
+
+      # You can configure Part-DB using the webUI or environment variables
+      # However you can add any other environment configuration you want here
       # See .env file for all available options or https://docs.part-db.de/configuration.html
 
-      # The language to use serverwide as default (en, de, ru, etc.)
-      - DEFAULT_LANG=en
-      # The default timezone to use serverwide (e.g. Europe/Berlin)
-      - DEFAULT_TIMEZONE=Europe/Berlin
-      # The currency that is used inside the DB (and is assumed when no currency is set). This can not be changed later, so be sure to set it the currency used in your country
-      - BASE_CURRENCY=EUR
-      # The name of this installation. This will be shown as title in the browser and in the header of the website
-      - INSTANCE_NAME=Part-DB
-
-      # Allow users to download attachments to the server by providing an URL
-      # This could be a potential security issue, as the user can retrieve any file the server has access to (via internet)
-      - ALLOW_ATTACHMENT_DOWNLOADS=0
-      # Use gravatars for user avatars, when user has no own avatar defined
-      - USE_GRAVATAR=0
-
-      # Override value if you want to show to show a given text on homepage.
-      # When this is empty the content of config/banner.md is used as banner
+      # Override value if you want to show a given text on homepage.
+      # When this is commented out the webUI can be used to configure the banner
       #- BANNER=This is a test banner<br>with a line break
+      
+      # If you need to install additional composer packages (e.g., for specific mailer transports), you can specify them here:
+      # - COMPOSER_EXTRA_PACKAGES=symfony/mailgun-mailer symfony/sendgrid-mailer
 
   database:
     container_name: partdb_database
@@ -172,6 +175,38 @@ services:
       - ./mysql:/var/lib/mysql
 
 ```
+
+### Installing additional composer packages
+
+If you need to use specific mailer transports or other functionality that requires additional composer packages, you can 
+install them automatically at container startup using the `COMPOSER_EXTRA_PACKAGES` environment variable.
+
+For example, if you want to use Mailgun as your email provider, you need to install the `symfony/mailgun-mailer` package.
+Add the following to your docker-compose.yaml environment section:
+
+```yaml
+environment:
+  - COMPOSER_EXTRA_PACKAGES=symfony/mailgun-mailer
+  - MAILER_DSN=mailgun+api://API_KEY:DOMAIN@default
+```
+
+You can specify multiple packages by separating them with spaces:
+
+```yaml
+environment:
+  - COMPOSER_EXTRA_PACKAGES=symfony/mailgun-mailer symfony/sendgrid-mailer
+```
+
+{: .info }
+> The packages will be installed when the container starts. This may increase the container startup time on the first run.
+> The installed packages will persist in the container until it is recreated.
+
+Common mailer packages you might need:
+- `symfony/mailgun-mailer` - For Mailgun email service
+- `symfony/sendgrid-mailer` - For SendGrid email service  
+- `symfony/brevo-mailer` - For Brevo (formerly Sendinblue) email service
+- `symfony/amazon-mailer` - For Amazon SES email service
+- `symfony/postmark-mailer` - For Postmark email service
 
 ### Update Part-DB
 
