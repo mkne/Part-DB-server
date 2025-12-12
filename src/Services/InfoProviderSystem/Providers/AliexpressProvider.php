@@ -51,9 +51,9 @@ class AliexpressProvider implements InfoProviderInterface
     {
         return [
             'name' => 'Aliexpress',
-            'description' => 'Webscrapping from reichelt.com to get part information',
+            'description' => 'Webscrapping from aliexpress.com to get part information',
             'url' => 'https://aliexpress.com/',
-            'disabled_help' => 'Set PROVIDER_REICHELT_ENABLED env to 1'
+            'disabled_help' => 'Set PROVIDER_ALIEXPRESS_ENABLED env to 1'
         ];
     }
 
