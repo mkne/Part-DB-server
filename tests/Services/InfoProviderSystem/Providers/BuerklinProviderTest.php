@@ -248,6 +248,60 @@ class BuerklinProviderTest extends TestCase
         $this->assertSame('Zener', $result['ABC'][0]->name);
     }
 
+    public function testLooksLikePartNumber(): void
+    {
+        $method = new \ReflectionMethod(BuerklinProvider::class, 'looksLikePartNumber');
+        $method->setAccessible(true);
+
+        $this->assertTrue($method->invoke($this->provider, 'BZX55C12'));
+        $this->assertTrue($method->invoke($this->provider, 'LM358D/DT'));
+        $this->assertFalse($method->invoke($this->provider, 'ab'));
+        $this->assertFalse($method->invoke($this->provider, 'LM 358'));
+    }
+
+    public function testRankAndFilterSearchProductsPrioritizesExactMatchesAndLimitsOutput(): void
+    {
+        $method = new \ReflectionMethod(BuerklinProvider::class, 'rankAndFilterSearchProducts');
+        $method->setAccessible(true);
+
+        $products = [
+            [
+                'code' => 'NOISY-1',
+                'orderNumber' => 'X123',
+                'manufacturerProductId' => 'OTHER',
+                'description' => 'some unrelated long text',
+            ],
+            [
+                'code' => 'BZX55C12',
+                'orderNumber' => 'BZX55C12',
+                'manufacturerProductId' => 'BZX55C12',
+                'description' => 'Exact part',
+            ],
+            [
+                'code' => 'BZX55C12-ALT',
+                'orderNumber' => 'ALT',
+                'manufacturerProductId' => 'BZX55C12A',
+                'description' => 'Prefix match',
+            ],
+        ];
+
+        // Add enough weak records to verify hard output cap (15)
+        for ($i = 0; $i < 20; $i++) {
+            $products[] = [
+                'code' => 'BZX55C12-V' . $i,
+                'orderNumber' => 'BZX55C12-V' . $i,
+                'manufacturerProductId' => 'BZX55C12-V' . $i,
+                'description' => 'variant',
+            ];
+        }
+
+        $ranked = $method->invoke($this->provider, $products, 'BZX55C12');
+
+        $this->assertNotEmpty($ranked);
+        $this->assertSame('BZX55C12', $ranked[0]['code']);
+        $this->assertLessThanOrEqual(15, count($ranked));
+    }
+
     public function testConvertPartDetailToSearchResult(): void
     {
         $detail = new PartDetailDTO(
