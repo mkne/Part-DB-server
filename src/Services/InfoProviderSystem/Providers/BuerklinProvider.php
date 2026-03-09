@@ -42,6 +42,8 @@ class BuerklinProvider implements BatchInfoProviderInterface, URLHandlerInfoProv
     public const DISTRIBUTOR_NAME = 'Buerklin';
 
     private const CACHE_TTL = 600;
+    private const SEARCH_PAGE_SIZE = 50;
+    private const SEARCH_RESULT_LIMIT = 15;
     /**
      * Local in-request cache to avoid hitting the PSR cache repeatedly for the same product.
      * @var array<string, array>
@@ -238,7 +240,7 @@ class BuerklinProvider implements BatchInfoProviderInterface, URLHandlerInfoProv
         // Feature parameters (from classifications->features)
         $featureParams = $this->attributesToParameters($features, ''); // leave group empty for normal parameters
 
-        // Compliance parameters (from top-level fields like RoHS/SVHC/…)
+        // Compliance parameters (from top-level fields like RoHS/SVHC/)
         $complianceParams = $this->complianceToParameters($product, 'Compliance');
 
         // Merge all parameters
@@ -439,9 +441,121 @@ class BuerklinProvider implements BatchInfoProviderInterface, URLHandlerInfoProv
             $unit = $f['featureUnit']['symbol'] ?? null;
             if (!is_string($unit) || trim($unit) === '') {
                 $unit = null;
+        $keyword = trim($keyword);
+
+        // If the query looks like a product code/MPN, do an exact lookup first for much better precision.
+        if ($this->looksLikePartNumber($keyword)) {
+            try {
+                $product = $this->getProduct($keyword);
+                return [$this->getPartDetail($product)];
+            } catch (\Throwable $e) {
+                // Continue with keyword search as fallback.
+            }
+        }
+
+        $keyword = strtoupper($keyword);
+
+            'pageSize' => self::SEARCH_PAGE_SIZE,
+            $products = $this->rankAndFilterSearchProducts($products, $keyword);
+
+    private function looksLikePartNumber(string $keyword): bool
+    {
+        $keyword = trim($keyword);
+        if ($keyword === '' || strlen($keyword) < 3 || strlen($keyword) > 64) {
+            return false;
+        }
+
+        // Product codes are usually compact and mostly alphanumeric with a small set of separators.
+        return preg_match('/^[A-Z0-9][A-Z0-9+_\.\/-]*$/i', $keyword) === 1
+            && !str_contains($keyword, ' ');
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $products
+     * @return array<int, array<string, mixed>>
+     */
+    private function rankAndFilterSearchProducts(array $products, string $keyword): array
+    {
+        $normalizedKeyword = strtoupper(trim($keyword));
+
+        $scored = [];
+        foreach ($products as $product) {
+            if (!is_array($product)) {
+                continue;
             }
 
-            // ParameterDTO parses value field (handles value + unit)
+            $score = $this->scoreSearchProduct($product, $normalizedKeyword);
+            if ($score <= 0) {
+                continue;
+            }
+
+            $scored[] = [
+                'score' => $score,
+                'product' => $product,
+            ];
+        }
+
+        usort($scored, static function (array $a, array $b): int {
+            return $b['score'] <=> $a['score'];
+        });
+
+        $rankedProducts = array_map(static fn(array $entry): array => $entry['product'], $scored);
+
+        return array_slice($rankedProducts, 0, self::SEARCH_RESULT_LIMIT);
+    }
+
+    /**
+     * Scores a product relevance for a query.
+     *
+     * @param array<string, mixed> $product
+     */
+    private function scoreSearchProduct(array $product, string $keyword): int
+    {
+        $fields = [
+            strtoupper((string) ($product['code'] ?? '')),
+            strtoupper((string) ($product['orderNumber'] ?? '')),
+            strtoupper((string) ($product['manufacturerProductId'] ?? '')),
+            strtoupper((string) ($product['manufacturer'] ?? '')),
+            strtoupper((string) ($product['description'] ?? '')),
+        ];
+
+        $exactFields = array_slice($fields, 0, 3);
+        foreach ($exactFields as $field) {
+            if ($field !== '' && $field === $keyword) {
+                return 1000;
+            }
+        }
+
+        $score = 0;
+
+        foreach ($exactFields as $field) {
+            if ($field !== '' && str_starts_with($field, $keyword)) {
+                $score = max($score, 350);
+            }
+            if ($field !== '' && str_contains($field, $keyword)) {
+                $score = max($score, 250);
+            }
+        }
+
+        // Token overlap for broad text matches
+        $tokens = preg_split('/[^A-Z0-9]+/', $keyword, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $haystack = ' ' . implode(' ', $fields) . ' ';
+        foreach ($tokens as $token) {
+            if (strlen($token) < 2) {
+                continue;
+            }
+
+            if (str_contains($haystack, ' ' . $token . ' ')) {
+                $score += 45;
+            } elseif (str_contains($haystack, $token)) {
+                $score += 20;
+            }
+        }
+
+        // Drop very weak matches from noisy broad searches.
+        return $score >= 45 ? $score : 0;
+    }
+
             $out[] = ParameterDTO::parseValueField(
                 name: $name,
                 value: $value,
