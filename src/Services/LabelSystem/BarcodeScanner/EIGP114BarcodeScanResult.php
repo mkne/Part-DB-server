@@ -179,9 +179,16 @@ readonly class EIGP114BarcodeScanResult implements BarcodeScanResultInterface
 
     public ?string $mouserPositionInOrder;
 
-    public ?string $mouserManufacturer;
+    public ?string $manufacturer;
 
+    /**
+     * @var string|null Extension: This is not represented in the ECIA spec, but the field being used is found in the ANSI MH10.8.2-2016 spec on which the ECIA spec is based. In the ANSI spec it is called First Level (Supplier Assigned) Part Number.
+     */
+    public ?string $vendorSKU;
 
+    public ?string $productionDate;
+
+    public ?string $vendor;
 
     /**
      *
@@ -190,7 +197,6 @@ readonly class EIGP114BarcodeScanResult implements BarcodeScanResultInterface
     public function __construct(public array $data, public readonly ?string $rawInput = null)
     {
         //IDs per EIGP 114.2018
-        $this->shipDate = $data['6D'] ?? null;
         $this->customerPartNumber = $data['P'] ?? null;
         $this->supplierPartNumber = $data['1P'] ?? null;
         $this->quantity = isset($data['Q']) ? (int)$data['Q'] : null;
@@ -208,17 +214,26 @@ readonly class EIGP114BarcodeScanResult implements BarcodeScanResultInterface
         $this->binCode = $data['33P'] ?? null;
         $this->packageCount = isset($data['13Q']) ? (int)$data['13Q'] : null;
         $this->revisionNumber = $data['2P'] ?? null;
-        //IDs used by Digikey
-        $this->digikeyPartNumber = $data['30P'] ?? null;
+        //IDs used uniformly (?) by multiple vendors outside of the standard
+        $this->manufacturer = $data['1V'] ?? null;
+        //IDs used exclusively (?) by Digikey
         $this->digikeySalesOrderNumber = $data['1K'] ?? null;
         $this->digikeyInvoiceNumber = $data['10K'] ?? null;
         $this->digikeyLabelType = $data['11Z'] ?? null;
         $this->digikeyPartID = $data['12Z'] ?? null;
         $this->digikeyNA = $data['13Z'] ?? null;
         $this->digikeyPadding = $data['20Z'] ?? null;
-        //IDs used by Mouser
+        //IDs used exclusively (?) by Mouser
         $this->mouserPositionInOrder = $data['14K'] ?? null;
-        $this->mouserManufacturer = $data['1V'] ?? null;
+        //ID used exclusively (?) by Schukat
+        $this->schukatHUNumber = $data['3Z'] ?? null;
+        //IDs with varying uses by different vendors: these can only be set when a vendor has been guessed
+        //Note: readonly vars can be set only once, but not necessarily in the constructor
+        //$this->vendorSKU = null;
+        //$this->productionDate = null;
+        //ID '6D' (shipDate) is actually part of the stardard, but not all vendors use it correctly
+        //$this->shipDate = null;
+        $this->vendor = $this->guessBarcodeVendor();
     }
 
     /**
@@ -228,22 +243,44 @@ readonly class EIGP114BarcodeScanResult implements BarcodeScanResultInterface
      */
     public function guessBarcodeVendor(): ?string
     {
+        //We check for Schukat first, because they adapt extensions from digikey and mouser
+        if (isset($this->data['3Z'])) {
+            // Schukat misuses the shipDate field for the date code
+            $this->productionDate = $this->data['6D'] ?? null;
+            $this->vendorSKU = $this->data['30P'] ?? null;
+            return 'schukat';
+        }
+
         //If the barcode data contains the digikey extensions, we assume it is a digikey barcode
         if (isset($this->data['13Z']) || isset($this->data['20Z']) || isset($this->data['12Z']) || isset($this->data['11Z'])) {
+            $this->shipDate = $this->data['6D'] ?? null;
+            $this->vendorSKU = $this->data['30P'] ?? null;
             return 'digikey';
         }
 
         //If the barcode data contains the mouser extensions, we assume it is a mouser barcode
         if (isset($this->data['14K']) || isset($this->data['1V'])) {
+            $this->shipDate = $this->data['6D'] ?? null;
+            $this->vendorSKU = $this->data['30P'] ?? null;
             return 'mouser';
         }
 
         //According to this thread (https://github.com/inventree/InvenTree/issues/853), Newark/element14 codes contains a "3P" field
         if (isset($this->data['3P'])) {
+            $this->vendorSKU = $this->data['3P'];
+            $this->shipDate = $this->data['6D'] ?? null;
             return 'element14';
         }
 
-        return null;
+        //Wuerth Elektronik has a "16D" field which is their date code
+        if (isset($this->data['16D'])) {
+            $this->productionDate = $this->data['16D'];
+            $this->shipDate = $this->data['6D'] ?? null;
+            $this->vendorSKU = $this->data['3P'];
+            return 'wurth_elektronik';
+        }
+
+        return 'Unknown';
     }
 
     /**
@@ -254,12 +291,17 @@ readonly class EIGP114BarcodeScanResult implements BarcodeScanResultInterface
      */
     public static function isFormat06Code(string $input): bool
     {
-        //Code must begin with [)><RS>06<GS>
-        if(!str_starts_with($input, "[)>\u{1E}06\u{1D}")){
+        //Code should begin with [)><RS>06<GS> as per the standard
+        if(!str_starts_with($input, "[)>\u{1E}06\u{1D}")
+        // some codes don't contain record separators
+        && !str_starts_with($input, "[)>06\u{1D}")
+        // This abomination is found on old Mouser parts
+        && !str_starts_with($input, ">[)>06\u{1D}"))
+        {
             return false;
         }
 
-        //Digikey does not put a trailer onto the barcode, so we just check for the header
+        //Digikey/Mouser don't put a trailer onto the barcode, so we just check for the header
 
         return true;
     }
