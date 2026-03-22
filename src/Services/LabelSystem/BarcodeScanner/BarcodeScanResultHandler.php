@@ -328,6 +328,17 @@ final readonly class BarcodeScanResultHandler
             ];
         }
 
+        // Wuerth Elektronik: can use supplierPartNumber directly
+        if ($vendor === 'wurth_elektronik') {
+            return [
+                'providerKey' => 'wurth_elektronik',
+                'providerId' => $scanResult->supplierPartNumber ?? throw new \RuntimeException('Wuerth Elektronik barcode does not contain required supplier part number'),
+                'lotAmount' => $scanResult->quantity,
+                'lotName' => $scanResult->customerPO,
+                'lotUserBarcode' => $scanResult->rawInput,
+            ];
+        }
+
         return null;
     }
 

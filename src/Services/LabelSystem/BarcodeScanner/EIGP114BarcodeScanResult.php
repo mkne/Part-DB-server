@@ -243,6 +243,11 @@ readonly class EIGP114BarcodeScanResult implements BarcodeScanResultInterface
             return 'element14';
         }
 
+        //WE has a "16D" field which is their date code
+        if (isset($this->data['16D'])) {
+            return 'wurth_elektronik';
+        }
+
         return null;
     }
 
