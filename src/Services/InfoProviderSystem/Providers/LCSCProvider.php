@@ -446,10 +446,10 @@ class LCSCProvider implements BatchInfoProviderInterface, URLHandlerInfoProvider
     {
         return [
             ProviderCapabilities::BASIC,
+            ProviderCapabilities::FOOTPRINT,
             ProviderCapabilities::PICTURE,
             ProviderCapabilities::DATASHEET,
             ProviderCapabilities::PRICE,
-            ProviderCapabilities::FOOTPRINT,
         ];
     }
 
