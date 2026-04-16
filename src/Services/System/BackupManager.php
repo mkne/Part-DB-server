@@ -22,6 +22,8 @@ declare(strict_types=1);
 
 namespace App\Services\System;
 
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Shivas\VersioningBundle\Service\VersionManagerInterface;
@@ -325,16 +327,16 @@ readonly class BackupManager
      */
     private function restoreDatabaseFromBackup(string $tempDir): void
     {
+        // Get database connection params from Doctrine
+        $connection = $this->entityManager->getConnection();
+        $params = $connection->getParams();
+        $platform = $connection->getDatabasePlatform();
+
         // Check for SQL dump (MySQL/PostgreSQL)
         $sqlFile = $tempDir . '/database.sql';
         if (file_exists($sqlFile)) {
-            // Import SQL using mysql/psql command directly
-            // First, get database connection params from Doctrine
-            $connection = $this->entityManager->getConnection();
-            $params = $connection->getParams();
-            $platform = $connection->getDatabasePlatform();
 
-            if ($platform instanceof \Doctrine\DBAL\Platforms\AbstractMySQLPlatform) {
+            if ($platform instanceof AbstractMySQLPlatform) {
                 // Use mysql command to import - need to use shell to handle input redirection
                 $mysqlCmd = 'mysql';
                 if (isset($params['host'])) {
@@ -361,7 +363,7 @@ readonly class BackupManager
                 if (!$process->isSuccessful()) {
                     throw new \RuntimeException('MySQL import failed: ' . $process->getErrorOutput());
                 }
-            } elseif ($platform instanceof \Doctrine\DBAL\Platforms\PostgreSQLPlatform) {
+            } elseif ($platform instanceof PostgreSQLPlatform) {
                 // Use psql command to import
                 $psqlCmd = 'psql';
                 if (isset($params['host'])) {
@@ -401,7 +403,8 @@ readonly class BackupManager
         // Check for SQLite database file
         $sqliteFile = $tempDir . '/var/app.db';
         if (file_exists($sqliteFile)) {
-            $targetDb = $this->projectDir . '/var/app.db';
+            // Use the actual configured SQLite path from Doctrine, not a hardcoded path
+            $targetDb = $params['path'] ?? $this->projectDir . '/var/app.db';
             $this->filesystem->copy($sqliteFile, $targetDb, true);
             return;
         }

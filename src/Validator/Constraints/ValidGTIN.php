@@ -1,7 +1,8 @@
+<?php
 /*
  * This file is part of Part-DB (https://github.com/Part-DB/Part-DB-symfony).
  *
- *  Copyright (C) 2019 - 2022 Jan Böhmer (https://github.com/jbtronics)
+ *  Copyright (C) 2019 - 2026 Jan Böhmer (https://github.com/jbtronics)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published
@@ -17,15 +18,18 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Controller } from '@hotwired/stimulus';
+declare(strict_types=1);
 
-export default class extends Controller {
-    connect() {
-        //If we encounter an element with this, then change the title of our document according to data-title
-        this.changeTitle(this.element.dataset.title);
-    }
 
-    changeTitle(title) {
-        document.title = title;
-    }
+namespace App\Validator\Constraints;
+
+use Symfony\Component\Validator\Constraint;
+
+/**
+ * A constraint to ensure that a GTIN is valid.
+ */
+#[\Attribute(\Attribute::TARGET_PROPERTY)]
+class ValidGTIN extends Constraint
+{
+
 }

@@ -1,7 +1,8 @@
+<?php
 /*
  * This file is part of Part-DB (https://github.com/Part-DB/Part-DB-symfony).
  *
- *  Copyright (C) 2019 - 2022 Jan Böhmer (https://github.com/jbtronics)
+ *  Copyright (C) 2019 - 2026 Jan Böhmer (https://github.com/jbtronics)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published
@@ -17,11 +18,25 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Controller } from '@hotwired/stimulus';
+declare(strict_types=1);
 
-export default class extends Controller {
-    connect() {
-        //If we encounter an element with global reload controller, then reload the whole page
-        window.location.reload();
+
+namespace App\Tests\Doctrine\Functions;
+
+use App\Doctrine\Functions\ArrayPosition;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+
+final class ArrayPositionTest extends AbstractDoctrineFunctionTestCase
+{
+    public function testArrayPositionBuildsSql(): void
+    {
+        $function = new ArrayPosition('ARRAY_POSITION');
+        $this->setObjectProperty($function, 'array', $this->createNode(':ids'));
+        $this->setObjectProperty($function, 'field', $this->createNode('p.id'));
+
+        $sql = $function->getSql($this->createSqlWalker(new PostgreSQLPlatform()));
+
+        $this->assertSame('ARRAY_POSITION(:ids, p.id)', $sql);
     }
 }
+

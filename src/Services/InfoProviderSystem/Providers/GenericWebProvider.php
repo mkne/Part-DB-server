@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace App\Services\InfoProviderSystem\Providers;
 
 use App\Exceptions\ProviderIDNotSupportedException;
+use App\Helpers\RandomizeUseragentHttpClient;
 use App\Services\InfoProviderSystem\DTOs\ParameterDTO;
 use App\Services\InfoProviderSystem\DTOs\PartDetailDTO;
 use App\Services\InfoProviderSystem\DTOs\PriceDTO;
@@ -41,6 +42,7 @@ use Brick\Schema\Interfaces\Thing;
 use Brick\Schema\SchemaReader;
 use Brick\Schema\SchemaTypeList;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class GenericWebProvider implements InfoProviderInterface
@@ -54,11 +56,9 @@ class GenericWebProvider implements InfoProviderInterface
         private readonly ProviderRegistry $providerRegistry, private readonly PartInfoRetriever $infoRetriever,
     )
     {
-        $this->httpClient = $httpClient->withOptions(
+        //Use NoPrivateNetworkHttpClient to prevent SSRF vulnerabilities, and RandomizeUseragentHttpClient to make it harder for servers to block us
+        $this->httpClient = (new RandomizeUseragentHttpClient(new NoPrivateNetworkHttpClient($httpClient)))->withOptions(
             [
-                'headers' => [
-                    'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
-                ],
                 'timeout' => 15,
             ]
         );
@@ -213,24 +213,25 @@ class GenericWebProvider implements InfoProviderInterface
 
         //Try to extract weight
         $mass = null;
-        if (($weight = $product?->weight->getFirstValue()) instanceof QuantitativeValue) {
+        if (($weight = $product->weight?->getFirstValue()) instanceof QuantitativeValue) {
             $mass = $weight->value->toString();
         }
 
         return new PartDetailDTO(
             provider_key: $this->getProviderKey(),
             provider_id: $url,
-            name: $product->name?->toString() ?? $product->alternateName?->toString() ?? $product?->mpn->toString() ?? 'Unknown Name',
+            name: $product->name?->toString() ?? $product->alternateName?->toString() ?? $product->mpn?->toString() ?? 'Unknown Name',
             description: $this->getMetaContent($dom, 'og:description') ?? $this->getMetaContent($dom, 'description') ?? '',
             category: $this->breadcrumbToCategory($categoryBreadcrumb) ?? $product->category?->toString(),
             manufacturer: self::propertyOrString($product->manufacturer) ?? self::propertyOrString($product->brand),
             mpn: $product->mpn?->toString(),
             preview_image_url: $image,
             provider_url: $url,
+            gtin: $product->gtin14?->toString() ?? $product->gtin13?->toString() ?? $product->gtin12?->toString() ?? $product->gtin8?->toString(),
             notes: $notes,
             parameters: $parameters,
             vendor_infos: $vendor_infos,
-            mass: $mass
+            mass: $mass,
         );
     }
 
@@ -247,10 +248,7 @@ class GenericWebProvider implements InfoProviderInterface
             return $value;
         }
 
-        if ($value instanceof Thing) {
-            return $value->$property?->toString();
-        }
-        return null;
+        return $value->$property?->toString();
     }
 
 
@@ -319,7 +317,14 @@ class GenericWebProvider implements InfoProviderInterface
             //Remove any leading slashes
             $url = ltrim($url, '/');
 
-            $url = 'https://'.$url;
+            //If the URL starts with https:/ or http:/, add the missing slash
+            //Traefik removes the double slash as secruity measure, so we want to be forgiving and add it back if needed
+            //See https://github.com/Part-DB/Part-DB-server/issues/1296
+            if (preg_match('/^https?:\/[^\/]/', $url)) {
+                $url = preg_replace('/^(https?:)\/([^\/])/', '$1//$2', $url);
+            } else {
+                $url = 'https://'.$url;
+            }
         }
 
         //If this is not a valid URL with host, domain and path, throw an exception
@@ -432,7 +437,8 @@ class GenericWebProvider implements InfoProviderInterface
         return [
             ProviderCapabilities::BASIC,
             ProviderCapabilities::PICTURE,
-            ProviderCapabilities::PRICE
+            ProviderCapabilities::PRICE,
+            ProviderCapabilities::GTIN,
         ];
     }
 }

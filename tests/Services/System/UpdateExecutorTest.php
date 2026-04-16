@@ -25,7 +25,7 @@ namespace App\Tests\Services\System;
 use App\Services\System\UpdateExecutor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-class UpdateExecutorTest extends KernelTestCase
+final class UpdateExecutorTest extends KernelTestCase
 {
     private ?UpdateExecutor $updateExecutor = null;
 
@@ -137,6 +137,38 @@ class UpdateExecutorTest extends KernelTestCase
 
         // Should no longer be locked
         $this->assertFalse($this->updateExecutor->isLocked());
+    }
+
+    public function testDeleteLogRejectsInvalidFilename(): void
+    {
+        // Path traversal attempts should be rejected
+        $this->assertFalse($this->updateExecutor->deleteLog('../../../etc/passwd'));
+        $this->assertFalse($this->updateExecutor->deleteLog('malicious.txt'));
+        $this->assertFalse($this->updateExecutor->deleteLog(''));
+        // Must start with "update-"
+        $this->assertFalse($this->updateExecutor->deleteLog('backup-v1.0.0.log'));
+    }
+
+    public function testDeleteLogReturnsFalseForNonExistentFile(): void
+    {
+        $this->assertFalse($this->updateExecutor->deleteLog('update-nonexistent-file.log'));
+    }
+
+    public function testDeleteLogDeletesExistingFile(): void
+    {
+        // Create a temporary log file in the update logs directory
+        $projectDir = self::getContainer()->getParameter('kernel.project_dir');
+        $logDir = $projectDir . '/var/log/updates';
+
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+
+        $testFile = 'update-test-delete-' . uniqid() . '.log';
+        file_put_contents($logDir . '/' . $testFile, 'test log content');
+
+        $this->assertTrue($this->updateExecutor->deleteLog($testFile));
+        $this->assertFileDoesNotExist($logDir . '/' . $testFile);
     }
 
     public function testEnableAndDisableMaintenanceMode(): void
