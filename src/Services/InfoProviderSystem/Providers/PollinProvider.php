@@ -249,8 +249,8 @@ class PollinProvider implements InfoProviderInterface, URLHandlerInfoProviderInt
         return [
             ProviderCapabilities::BASIC,
             ProviderCapabilities::PICTURE,
+            ProviderCapabilities::DATASHEET,
             ProviderCapabilities::PRICE,
-            ProviderCapabilities::DATASHEET
         ];
     }
 
