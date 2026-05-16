@@ -83,8 +83,6 @@ export default class extends Controller {
         if (data) {
             //Do not save the start value (current page), as we want to always start at the first page on a page reload
             delete data.start;
-            //Reset the data length to the default value by deleting the length property
-            delete data.length;
         }
 
         return data;
@@ -113,8 +111,16 @@ export default class extends Controller {
                     return null;
                 }
 
+                //The saved order index is visual (post-reorder). If colReorder state
+                //exists, map it back to the original column index so the server sorts
+                //the correct column. colReorder[visualIndex] == originalIndex.
+                let columnIndex = order[0];
+                if (saved_state.colReorder) {
+                    columnIndex = saved_state.colReorder[columnIndex];
+                }
+
                 return {
-                    column: order[0],
+                    column: columnIndex,
                     dir: order[1]
                 }
             });
