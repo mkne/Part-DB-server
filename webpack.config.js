@@ -22,10 +22,9 @@
 var Encore = require('@symfony/webpack-encore');
 
 const zlib = require('zlib');
+const path = require('path')
 const CompressionPlugin = require("compression-webpack-plugin");
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-const { CKEditorTranslationsPlugin } = require( '@ckeditor/ckeditor5-dev-translations' );
-const { styles } = require( '@ckeditor/ckeditor5-dev-utils' );
 
 // Manually configure the runtime environment if not already configured yet by the "encore" command.
 // It's useful when you use tools that rely on webpack.config.js file.
@@ -120,16 +119,16 @@ Encore
     // requires WebpackEncoreBundle 1.4 or higher
     .enableIntegrityHashes(Encore.isProduction())
 
-    // uncomment if you're having problems with a jQuery plugin
+    // Force all jquery imports to the UMD build so webpack always receives the
+    // jQuery function directly instead of an ESM namespace object. Without this,
+    // webpack's ESM interop wraps jquery.module.js in a namespace
+    // { default, jQuery, $ } which has no .fn, crashing Bootstrap's
+    // defineJQueryPlugin when it tries to access $.fn.alert.
+    .addAliases({
+        'jquery': path.resolve(__dirname, 'node_modules/jquery/dist/jquery.js')
+    })
     .autoProvidejQuery()
 
-    .addPlugin( new CKEditorTranslationsPlugin( {
-        // See https://ckeditor.com/docs/ckeditor5/latest/features/ui-language.html
-        language: 'en',
-        addMainLanguageTranslationsToAllAssets: true,
-        additionalLanguages: 'all',
-        outputDirectory: 'ckeditor_translations'
-    } ) )
 
     // Use raw-loader for CKEditor 5 SVG files.
     .addRule( {
@@ -142,24 +141,15 @@ Encore
         loader.exclude = /ckeditor5-[^/\\]+[/\\]theme[/\\]icons[/\\][^/\\]+\.svg$/;
     } )
 
-    // Configure PostCSS loader.
-    .addLoader({
-        test: /ckeditor5-[^/\\]+[/\\]theme[/\\].+\.css$/,
-        loader: 'postcss-loader',
-        options: {
-            postcssOptions: styles.getPostCssConfig( {
-                themeImporter: {
-                    themePath: require.resolve( '@ckeditor/ckeditor5-theme-lark' )
-                },
-                minify: true
-            } )
-        }
-    } )
+    .addAliases({
+        'ckeditor5-translations': path.resolve(__dirname, 'node_modules/ckeditor5/dist/translations')
+    })
+
 
 ;
 
 //These are all the themes that are available in bootswatch
-const AVAILABLE_THEMES = ['bootstrap', 'cerulean', 'cosmo', 'cyborg', 'darkly', 'flatly', 'journal',
+const AVAILABLE_THEMES = ['bootstrap', 'brite',  'cerulean', 'cosmo', 'cyborg', 'darkly', 'flatly', 'journal',
     'litera', 'lumen', 'lux', 'materia', 'minty', 'morph', 'pulse', 'quartz', 'sandstone', 'simplex', 'sketchy', 'slate', 'solar',
     'spacelab', 'superhero', 'united', 'vapor', 'yeti', 'zephyr'];
 

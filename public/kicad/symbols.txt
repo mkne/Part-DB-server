@@ -1,4 +1,4 @@
-# Generated on Mon Mar  9 04:24:12 UTC 2026
+# Generated on Mon Jun 22 07:32:26 UTC 2026
 # This file contains all symbols available in the offical KiCAD library
 4xxx:14528
 4xxx:14529
@@ -899,6 +899,7 @@ Amplifier_Buffer:BUF634AxD
 Amplifier_Buffer:BUF634AxDDA
 Amplifier_Buffer:BUF634AxDRB
 Amplifier_Buffer:BUF634U
+Amplifier_Buffer:BUF802
 Amplifier_Buffer:EL2001CN
 Amplifier_Buffer:LH0002H
 Amplifier_Buffer:LM6321H
@@ -1667,7 +1668,6 @@ Analog_ADC:CA3300
 Analog_ADC:HX711
 Analog_ADC:ICL7106CPL
 Analog_ADC:ICL7107CPL
-Analog_ADC:INA234AxYBJ
 Analog_ADC:LTC1406CGN
 Analog_ADC:LTC1406IGN
 Analog_ADC:LTC1594CS
@@ -2198,6 +2198,7 @@ Audio:WM8731SEDS
 Audio:YM2149
 Audio:YM2612
 Audio:YM3438
+Auxiliary_Items:Generic_Outline
 Auxiliary_Items:Jumper_Shunt
 Auxiliary_Items:MountingScrew
 Battery_Management:ADP5063
@@ -2254,6 +2255,11 @@ Battery_Management:BQ76200PW
 Battery_Management:BQ76920PW
 Battery_Management:BQ76930DBT
 Battery_Management:BQ76940DBT
+Battery_Management:BQ7695201PFB
+Battery_Management:BQ7695202PFB
+Battery_Management:BQ7695203PFB
+Battery_Management:BQ7695204PFB
+Battery_Management:BQ76952PFB
 Battery_Management:BQ78350DBT
 Battery_Management:BQ78350DBT-R1
 Battery_Management:CN3063
@@ -2763,6 +2769,8 @@ Connector:DIN41612_02x32_AC
 Connector:DIN41612_02x32_AE
 Connector:DIN41612_02x32_ZB
 Connector:DIN41612_03x32_C_Split
+Connector:DP_Sink
+Connector:DP_Source
 Connector:DVI-D_Dual_Link
 Connector:DVI-I_Dual_Link
 Connector:ExpressCard
@@ -2901,6 +2909,7 @@ Connector:TestPoint_Alt
 Connector:TestPoint_Flag
 Connector:TestPoint_Probe
 Connector:TestPoint_Small
+Connector:TestPoint_Square
 Connector:UEXT_Host
 Connector:UEXT_Slave
 Connector:USB3_A
@@ -4945,6 +4954,7 @@ Converter_DCDC:RPMH15-1.5
 Converter_DCDC:RPMH24-1.5
 Converter_DCDC:RPMH3.3-1.5
 Converter_DCDC:RPMH5.0-1.5
+Converter_DCDC:SMU02L-24N
 Converter_DCDC:TBA1-0310
 Converter_DCDC:TBA1-0311
 Converter_DCDC:TBA1-0510
@@ -5291,21 +5301,39 @@ Converter_DCDC:TMR-4812
 Converter_DCDC:TMR-4821
 Converter_DCDC:TMR-4822
 Converter_DCDC:TMR-4823
+Converter_DCDC:TMR10-1211WI
+Converter_DCDC:TMR10-1212WI
+Converter_DCDC:TMR10-1213WI
+Converter_DCDC:TMR10-1215WI
+Converter_DCDC:TMR10-1222WI
+Converter_DCDC:TMR10-1223WI
 Converter_DCDC:TMR10-2410WIR
+Converter_DCDC:TMR10-2411WI
 Converter_DCDC:TMR10-2411WIR
+Converter_DCDC:TMR10-2412WI
 Converter_DCDC:TMR10-2412WIR
+Converter_DCDC:TMR10-2413WI
 Converter_DCDC:TMR10-2413WIR
+Converter_DCDC:TMR10-2415WI
 Converter_DCDC:TMR10-2415WIR
 Converter_DCDC:TMR10-2421WIR
+Converter_DCDC:TMR10-2422WI
 Converter_DCDC:TMR10-2422WIR
+Converter_DCDC:TMR10-2423WI
 Converter_DCDC:TMR10-2423WIR
 Converter_DCDC:TMR10-4810WIR
+Converter_DCDC:TMR10-4811WI
 Converter_DCDC:TMR10-4811WIR
+Converter_DCDC:TMR10-4812WI
 Converter_DCDC:TMR10-4812WIR
+Converter_DCDC:TMR10-4813WI
 Converter_DCDC:TMR10-4813WIR
+Converter_DCDC:TMR10-4815WI
 Converter_DCDC:TMR10-4815WIR
 Converter_DCDC:TMR10-4821WIR
+Converter_DCDC:TMR10-4822WI
 Converter_DCDC:TMR10-4822WIR
+Converter_DCDC:TMR10-4823WI
 Converter_DCDC:TMR10-4823WIR
 Converter_DCDC:TMR10-7210WIR
 Converter_DCDC:TMR10-7211WIR
@@ -6115,6 +6143,7 @@ Device:SparkGap
 Device:Speaker
 Device:Speaker_Crystal
 Device:Speaker_Ultrasound
+Device:Thermal_Jumper
 Device:Thermistor
 Device:Thermistor_NTC
 Device:Thermistor_NTC_3Wire
@@ -7536,6 +7565,7 @@ Driver_FET:ZXGD3003E6
 Driver_FET:ZXGD3004E6
 Driver_FET:ZXGD3006E6
 Driver_FET:ZXGD3009E6
+Driver_LED:AL5819W6
 Driver_LED:AL8860MP
 Driver_LED:AL8860WT
 Driver_LED:AP3019AKTR
@@ -7683,6 +7713,7 @@ Driver_Motor:DRV8311P
 Driver_Motor:DRV8311S
 Driver_Motor:DRV8412
 Driver_Motor:DRV8432
+Driver_Motor:DRV8434PWP
 Driver_Motor:DRV8461SPWP
 Driver_Motor:DRV8662
 Driver_Motor:DRV8800PWP
@@ -7772,6 +7803,7 @@ FPGA_Lattice:ICE40HX1K-TQ144
 FPGA_Lattice:ICE40HX4K-BG121
 FPGA_Lattice:ICE40HX4K-TQ144
 FPGA_Lattice:ICE40HX8K-BG121
+FPGA_Lattice:ICE40LP384-SG32
 FPGA_Lattice:ICE40UL1K-SWG16
 FPGA_Lattice:ICE40UP5K-SG48ITR
 FPGA_Lattice:ICE5LP1K-SG48
@@ -8835,6 +8867,7 @@ Interface_USB:CH343G
 Interface_USB:CH343P
 Interface_USB:CH344Q
 Interface_USB:CH9102F
+Interface_USB:CP2102C-Axx-xQFN24
 Interface_USB:CP2102N-Axx-xQFN20
 Interface_USB:CP2102N-Axx-xQFN24
 Interface_USB:CP2102N-Axx-xQFN28
@@ -14580,6 +14613,8 @@ MCU_Texas:LM4F111C4QR
 MCU_Texas:LM4F111E5QR
 MCU_Texas:LM4F111H5QR
 MCU_Texas:MSP432E401Y
+MCU_Texas:MSPM0C110xSDDF
+MCU_Texas:MSPM0C110xSDSG
 MCU_Texas:TM4C1230C3PM
 MCU_Texas:TM4C1230D5PM
 MCU_Texas:TM4C1230E6PM
@@ -15102,6 +15137,7 @@ Memory_Flash:AM29F400Bx-xxEx
 Memory_Flash:AM29F400Bx-xxSx
 Memory_Flash:AM29PDL128G
 Memory_Flash:AT25DF041x-UxN-x
+Memory_Flash:AT25SF041B-SSHD-X
 Memory_Flash:AT25SF081-SSHD-X
 Memory_Flash:AT25SF081-SSHF-X
 Memory_Flash:AT25SF081-XMHD-X
@@ -15657,6 +15693,7 @@ Power_Management:LM5069MM-1
 Power_Management:LM5069MM-2
 Power_Management:LM66100DCK
 Power_Management:LM74700
+Power_Management:LM74701-Q1
 Power_Management:LMG3410
 Power_Management:LMG5200
 Power_Management:LT1641-1
@@ -15731,6 +15768,7 @@ Power_Management:RT9742AGJ5F
 Power_Management:RT9742ANGJ5F
 Power_Management:RT9742BGJ5F
 Power_Management:RT9742BNGJ5F
+Power_Management:RT9742SNGV
 Power_Management:SN6505ADBV
 Power_Management:SN6505BDBV
 Power_Management:SN6507DGQ
@@ -15757,6 +15795,7 @@ Power_Management:TPS22810DBV
 Power_Management:TPS22810DRV
 Power_Management:TPS22917DBV
 Power_Management:TPS22917LDBV
+Power_Management:TPS22919DCK
 Power_Management:TPS22929D
 Power_Management:TPS22993
 Power_Management:TPS2412D
@@ -16023,6 +16062,7 @@ Power_Supervisor:TPS3831
 Power_Supervisor:TPS3839DBZ
 Power_Supervisor:TPS3839DQN
 RF:0900PC15J0013
+RF:AD8302xRU
 RF:ADC-10-1R
 RF:ADCH-80
 RF:ADCH-80A
@@ -16465,6 +16505,7 @@ RF_Module:DWM3000
 RF_Module:E18-MS1-PCB
 RF_Module:E73-2G4M04S-52810
 RF_Module:E73-2G4M04S-52832
+RF_Module:ESP-01
 RF_Module:ESP-07
 RF_Module:ESP-12E
 RF_Module:ESP-12F
@@ -16666,6 +16707,19 @@ Reference_Voltage:LM4040LP-4.1
 Reference_Voltage:LM4040LP-5
 Reference_Voltage:LM4040LP-8.2
 Reference_Voltage:LM4041LP-ADJ
+Reference_Voltage:LM4050xEM3-2.1
+Reference_Voltage:LM4050xEM3-2.5
+Reference_Voltage:LM4050xEM3-3.0
+Reference_Voltage:LM4050xEM3-3.3
+Reference_Voltage:LM4050xEM3-4.1
+Reference_Voltage:LM4050xEM3-5.0
+Reference_Voltage:LM4050xEX3-2.1
+Reference_Voltage:LM4050xEX3-2.5
+Reference_Voltage:LM4050xEX3-3.3
+Reference_Voltage:LM4050xEX3-4.1
+Reference_Voltage:LM4050xEX3-5.0
+Reference_Voltage:LM4051xEM3-1.2
+Reference_Voltage:LM4051xEX3-1.2
 Reference_Voltage:LM4125AIM5-2.5
 Reference_Voltage:LM4125IM5-2.0
 Reference_Voltage:LM4125IM5-2.5
@@ -16813,7 +16867,6 @@ Reference_Voltage:MCP1501-25xCH
 Reference_Voltage:MCP1501-25xRW
 Reference_Voltage:MCP1501-25xSN
 Reference_Voltage:MCP1501-30xCH
-Reference_Voltage:MCP1501-30xRW
 Reference_Voltage:MCP1501-30xSN
 Reference_Voltage:MCP1501-33xCH
 Reference_Voltage:MCP1501-33xRW
@@ -18692,6 +18745,7 @@ Regulator_Linear:TPS7A0530PDBZ
 Regulator_Linear:TPS7A0531PDBV
 Regulator_Linear:TPS7A0533PDBV
 Regulator_Linear:TPS7A0533PDBZ
+Regulator_Linear:TPS7A20xxxDBV
 Regulator_Linear:TPS7A20xxxDQN
 Regulator_Linear:TPS7A3301RGW
 Regulator_Linear:TPS7A39
@@ -19245,6 +19299,7 @@ Regulator_Switching:LT1373HVCN8
 Regulator_Switching:LT1373HVCS8
 Regulator_Switching:LT1377CN8
 Regulator_Switching:LT1377CS8
+Regulator_Switching:LT1931
 Regulator_Switching:LT1945
 Regulator_Switching:LT3430
 Regulator_Switching:LT3430-1
@@ -19309,6 +19364,9 @@ Regulator_Switching:MAX15062C
 Regulator_Switching:MAX1522
 Regulator_Switching:MAX1523
 Regulator_Switching:MAX1524
+Regulator_Switching:MAX15462A
+Regulator_Switching:MAX15462B
+Regulator_Switching:MAX15462C
 Regulator_Switching:MAX17501AxTB
 Regulator_Switching:MAX17501BxTB
 Regulator_Switching:MAX17501ExTB
@@ -20301,7 +20359,6 @@ Sensor:BME280
 Sensor:BME680
 Sensor:CHT11
 Sensor:DHT11
-Sensor:INA260
 Sensor:LTC2990
 Sensor:MAX30102
 Sensor:Nuclear-Radiation_Detector
@@ -20588,9 +20645,12 @@ Sensor_Energy:INA219BxD
 Sensor_Energy:INA219BxDCN
 Sensor_Energy:INA226
 Sensor_Energy:INA228
+Sensor_Energy:INA229
 Sensor_Energy:INA233
+Sensor_Energy:INA234AxYBJ
 Sensor_Energy:INA237
 Sensor_Energy:INA238
+Sensor_Energy:INA260
 Sensor_Energy:LTC4151xMS
 Sensor_Energy:MCP39F521
 Sensor_Energy:PAC1931x-xJ6CX
@@ -20872,6 +20932,7 @@ Sensor_Proximity:BPR-105
 Sensor_Proximity:BPR-105F
 Sensor_Proximity:BPR-205
 Sensor_Proximity:CNY70
+Sensor_Proximity:FDC1004DGS
 Sensor_Proximity:GP2S700HCP
 Sensor_Proximity:ITR1201SR10AR
 Sensor_Proximity:ITR8307
@@ -20967,6 +21028,7 @@ Sensor_Temperature:MCP9501
 Sensor_Temperature:MCP9502
 Sensor_Temperature:MCP9503
 Sensor_Temperature:MCP9504
+Sensor_Temperature:MCP96xx01x-x-MX
 Sensor_Temperature:MCP9700Ax-ELT
 Sensor_Temperature:MCP9700Ax-ETT
 Sensor_Temperature:MCP9700Ax-HLT
@@ -21285,6 +21347,7 @@ Timer_RTC:MCP79512-xMS
 Timer_RTC:MCP79520-xMS
 Timer_RTC:MCP79521-xMS
 Timer_RTC:MCP79522-xMS
+Timer_RTC:PCA2131
 Timer_RTC:PCF85063ATL
 Timer_RTC:PCF8523T
 Timer_RTC:PCF8523TK
@@ -21791,6 +21854,7 @@ Transistor_BJT:Q_NPN_Darlington_ECBC
 Transistor_BJT:Q_NPN_EBC
 Transistor_BJT:Q_NPN_ECB
 Transistor_BJT:Q_NPN_ECBC
+Transistor_BJT:Q_PNP_ACAB
 Transistor_BJT:Q_PNP_BCE
 Transistor_BJT:Q_PNP_BCEC
 Transistor_BJT:Q_PNP_BEC
@@ -22455,6 +22519,7 @@ Transistor_FET_Other:Q_NMOS_Depletion_GDS
 Transistor_FET_Other:Q_NMOS_Depletion_GSD
 Transistor_FET_Other:Q_NMOS_Depletion_SDG
 Transistor_FET_Other:Q_NMOS_Depletion_SGD
+Transistor_FET_Other:SP010N70T8
 Transistor_FET_Other:VNB35N07xx-E
 Transistor_FET_Other:VNP10N07
 Transistor_FET_Other:VNP35N07xx-E

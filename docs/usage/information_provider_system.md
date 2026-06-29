@@ -75,6 +75,15 @@ the parts you want to update. In the bulk actions dropdown select "Bulk info pro
 You will be redirected to a page, where you can select how part fields should be mapped to info provider fields, and the 
 results will be shown.
 
+## Browser plugin
+There is a browser plugin available for [Chrome](https://chromewebstore.google.com/detail/part-db-page-submitter/bckkfkpidiiibmjdhjakleoagjmepioi) and [Firefox](https://addons.mozilla.org/de/firefox/addon/part-db-page-submitter/)
+that allows to submit a website from your browser with one click to Part-DB, which then utilizes the Generic Web URL or the AI Web Provider to extract the part information from the page and pre-fill the part creation form.
+The advantage is that it also works for pages behind logins, CAPTCHAs, or bot-blocking sites, as the plugin sends the already loaded page HTML to Part-DB.
+The plugin is open source and available on [GitHub](https://github.com/Part-DB/browser-plugin).
+
+To use it install it in your browser, enable one or more of the web page providers in Part-DB and allow the plugin support
+in Part-DB settings. After that you can submit any product page to Part-DB with one click and the part creation form will be pre-filled with the information from the page.
+
 ## Data providers
 
 The system tries to be as flexible as possible, so many different information sources can be used.
@@ -110,6 +119,19 @@ may have privacy and security implications.
 
 Following env configuration options are available:
 * `PROVIDER_GENERIC_WEB_ENABLED`: Set this to `1` to enable the Generic Web URL Provider (optional, default: `0`)
+
+### AI Web Extractor
+The AI web extractor provider can extract part information from any webpage using AI-based techniques. It is designed to handle unstructured data and can extract relevant information even from websites that do not use structured data formats like Schema.org. 
+This provider can be particularly useful for extracting information from websites that have complex layouts or do not follow standard e-commerce practices.
+It also potentially extracts more detailed information than the Generic Web URL Provider, as it is not limited to the fields defined in the Schema.org format.
+
+To use the AI Web Extractor, you need to setup an AI platform, in the AI settings tab, and chose a model, which support structured output.
+For many use cases a small and cheap model like `google/gemini-2.5-flash-lite` will be sufficient, coming down to costs like 0.001$ per request.
+For more complex websites, or if you wanna use the LLM for translation purposes too, you should consider a more powerful model.
+
+You can add some additional instructions for the model, which gets added to the system prompt, to tweak the output of the model.
+
+The provider will download the HTML of the given URL, convert it to markdown and send it to the LLM toghether with structured data extracted from the webpage via conventional methods.
 
 ### Octopart
 

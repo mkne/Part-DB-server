@@ -67,22 +67,15 @@ use Symfony\Component\Validator\Constraints as Assert;
         new Post(securityPostDenormalize: 'is_granted("create", object)'),
         new Patch(security: 'is_granted("edit", object)'),
         new Delete(security: 'is_granted("delete", object)'),
+        new GetCollection(
+            uriTemplate: '/footprints/{id}/children.{_format}',
+            uriVariables: ['id' => new Link(fromProperty: 'children', fromClass: Footprint::class)],
+            openapi: new Operation(summary: 'Retrieves the children elements of a footprint.'),
+            security: 'is_granted("@footprints.read")'
+        ),
     ],
     normalizationContext: ['groups' => ['footprint:read', 'api:basic:read'], 'openapi_definition_name' => 'Read'],
     denormalizationContext: ['groups' => ['footprint:write', 'api:basic:write', 'attachment:write', 'parameter:write'], 'openapi_definition_name' => 'Write'],
-)]
-#[ApiResource(
-    uriTemplate: '/footprints/{id}/children.{_format}',
-    operations: [
-        new GetCollection(
-            openapi: new Operation(summary: 'Retrieves the children elements of a footprint.'),
-            security: 'is_granted("@footprints.read")'
-        )
-    ],
-    uriVariables: [
-        'id' => new Link(fromProperty: 'children', fromClass: Footprint::class)
-    ],
-    normalizationContext: ['groups' => ['footprint:read', 'api:basic:read'], 'openapi_definition_name' => 'Read']
 )]
 #[ApiFilter(PropertyFilter::class)]
 #[ApiFilter(LikeFilter::class, properties: ["name", "comment"])]
@@ -150,6 +143,15 @@ class Footprint extends AbstractPartsContainingDBElement
         $this->attachments = new ArrayCollection();
         $this->parameters = new ArrayCollection();
         $this->eda_info = new EDAFootprintInfo();
+    }
+
+    public function __clone()
+    {
+        if ($this->id) {
+            //Clone EDA info to prevent changes to the original EDA info when changing the cloned category
+            $this->eda_info = clone $this->eda_info;
+        }
+        parent::__clone();
     }
 
     /****************************************
