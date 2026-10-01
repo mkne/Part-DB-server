@@ -15,7 +15,7 @@ data structures directly from the part edit page: Just type the name of the data
 select field on the part edit page and press "Create new ...". The new data structure will be created when you save
 the part changes.
 
-You can create also create nested data structures this way. For example, if you want to create a new category "AVRs",
+You can also create nested data structures this way. For example, if you want to create a new category "AVRs",
 as a subcategory of "MCUs", you can just type "MCUs->AVRs" into the category select field and press "Create new".
 The new category "AVRs" will be created as a subcategory of "MCUs". If the category "MCUs" does not exist, it will
 be created too.
@@ -29,6 +29,32 @@ Type the name of the footprint image you want to use into the URL field of the a
 dropdown menu. You can find a gallery of all builtin footprint images and their names in the "Builtin footprint image
 gallery",
 which you can find in the "Tools" menu (you may need to give your user the permission to access this tool).
+
+### Additional footprint images
+
+You can add your own footprint images, which can then be used like the built-in ones: Put the image files (subfolders
+are allowed) into the `public/custom/footprints/` folder of your Part-DB installation. They are referenced via the
+`%FOOTPRINTS_C%` placeholder (e.g. `%FOOTPRINTS_C%/MyFootprints/SOT-23.png`), are suggested in the URL field of
+attachments and are shown in the builtin footprint image gallery under the "Custom" folder.
+
+The list of footprint images is cached, so new or removed files only show up after clearing the cache:
+
+```bash
+php bin/console cache:pool:clear --all
+```
+
+(For Docker: `docker exec --user=www-data partdb php bin/console cache:pool:clear --all`)
+
+For Docker installations, mount a folder with your images to `/var/www/html/public/custom/footprints`, e.g. by
+adding `- ./custom_footprints:/var/www/html/public/custom/footprints` to the `volumes` section of your
+`docker-compose.yaml`.
+
+Images of the footprints of the KiCad footprint library can be downloaded into the custom footprints folder with the
+following command (the cache is cleared automatically afterward):
+
+```bash
+php bin/console partdb:attachments:download-footprint-images
+```
 
 ## Parametric search
 

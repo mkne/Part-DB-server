@@ -64,13 +64,13 @@ final readonly class PartsDataTable implements DataTableTypeInterface
     public const LENGTH_MENU = [[10, 25, 50, 100, 250, 500, -1], [10, 25, 50, 100, 250, 500, "All"]];
 
     public function __construct(
-        private readonly EntityURLGenerator $urlGenerator,
-        private readonly TranslatorInterface $translator,
-        private readonly AmountFormatter $amountFormatter,
-        private readonly PartDataTableHelper $partDataTableHelper,
-        private readonly Security $security,
-        private readonly ColumnSortHelper $csh,
-        private readonly TableSettings $tableSettings,
+        private EntityURLGenerator $urlGenerator,
+        private TranslatorInterface $translator,
+        private AmountFormatter $amountFormatter,
+        private PartDataTableHelper $partDataTableHelper,
+        private Security $security,
+        private ColumnSortHelper $csh,
+        private TableSettings $tableSettings,
     ) {
     }
 
@@ -174,6 +174,13 @@ final readonly class PartsDataTable implements DataTableTypeInterface
                 'data' => fn(Part $context) => $this->partDataTableHelper->renderAmount($context),
                 'orderField' => 'amountSum'
             ])
+            ->add('supplier_available_amount', HTMLColumn::class, [
+                'label' => $this->translator->trans('part.table.supplier_available_amount'),
+                //The stock is not stored in a way we could sort by (it is spread over the orderdetails), so this
+                //column is purely informational
+                'orderable' => false,
+                'data' => fn(Part $context) => $this->partDataTableHelper->renderSupplierAvailableAmount($context),
+            ])
             ->add('minamount', TextColumn::class, [
                 'label' => $this->translator->trans('part.table.minamount'),
                 'data' => fn(Part $context, $value): string => $this->amountFormatter->format(
@@ -198,18 +205,11 @@ final readonly class PartsDataTable implements DataTableTypeInterface
                     return $tmp;
                 }
             ])
-            ->add('partCustomState', TextColumn::class, [
+            ->add('partCustomState', HTMLColumn::class, [
                 'label' => $this->translator->trans('part.table.partCustomState'),
                 'orderField' => 'NATSORT(_partCustomState.name)',
-                'data' => function(Part $context): string {
-                    $partCustomState = $context->getPartCustomState();
-
-                    if ($partCustomState === null) {
-                        return '';
-                    }
-
-                    return $partCustomState->getName();
-                }
+                'data' => fn(Part $context): string
+                    => $this->partDataTableHelper->renderPartCustomState($context->getPartCustomState()),
             ])
             ->add('addedDate', LocaleDateTimeColumn::class, [
                 'label' => $this->translator->trans('part.table.addedDate'),
@@ -374,6 +374,12 @@ final readonly class PartsDataTable implements DataTableTypeInterface
             ->addSelect('storelocations')
             ->addSelect('projectBomEntries')
             ->from(Part::class, 'part')
+            
+            //Do not join anything here that is not selected (like the parameters): Every to-many join multiplies the
+            //number of result rows, which all have to be hydrated by doctrine, even if they contain no new data.
+            //Also do not group by anything: Grouping by an entity groups by all of its columns, which is expensive
+            //and with fetch-joined collections would cut off their elements (issue #190).
+
             ->leftJoin('part.category', 'category')
             ->leftJoin('part.master_picture_attachment', 'master_picture_attachment')
             ->leftJoin('part.partLots', 'partLots')
@@ -382,31 +388,14 @@ final readonly class PartsDataTable implements DataTableTypeInterface
             ->leftJoin('footprint.master_picture_attachment', 'footprint_attachment')
             ->leftJoin('part.manufacturer', 'manufacturer')
             ->leftJoin('part.orderdetails', 'orderdetails')
-            ->leftJoin('orderdetails.supplier', 'suppliers')
             ->leftJoin('part.attachments', 'attachments')
             ->leftJoin('part.partUnit', 'partUnit')
             ->leftJoin('part.partCustomState', 'partCustomState')
-            ->leftJoin('part.parameters', 'parameters')
             ->leftJoin('part.project_bom_entries', 'projectBomEntries')
             ->where('part.id IN (:ids)')
             ->setParameter('ids', $ids)
 
-            //We have to group by all elements, or only the first sub elements of an association is fetched! (caused issue #190)
-            ->addGroupBy('part')
-            ->addGroupBy('partLots')
-            ->addGroupBy('category')
-            ->addGroupBy('master_picture_attachment')
-            ->addGroupBy('storelocations')
-            ->addGroupBy('footprint')
-            ->addGroupBy('footprint_attachment')
-            ->addGroupBy('manufacturer')
-            ->addGroupBy('orderdetails')
-            ->addGroupBy('suppliers')
-            ->addGroupBy('attachments')
-            ->addGroupBy('partUnit')
-            ->addGroupBy('partCustomState')
-            ->addGroupBy('parameters')
-            ->addGroupBy('projectBomEntries')
+
 
             ->setHint(Query::HINT_READ_ONLY, true)
             ->setHint(Query::HINT_FORCE_PARTIAL_LOAD, false)

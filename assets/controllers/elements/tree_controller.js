@@ -19,7 +19,7 @@
 
 import {Controller} from "@hotwired/stimulus";
 
-import {BSTreeView, BSTreeViewNode, BS5Theme, FAIconTheme, EVENT_INITIALIZED} from "@jbtronics/bs-treeview";
+import {BSTreeView, BS5Theme, FAIconTheme, EVENT_INITIALIZED} from "@jbtronics/bs-treeview";
 import "@jbtronics/bs-treeview/styles/bs-treeview.css";
 
 export default class extends Controller {
@@ -141,18 +141,29 @@ export default class extends Controller {
     }
 
     collapseAll() {
+        //These actions can be triggered (button click / search input) before the tree data has
+        //finished loading asynchronously, at which point this._tree is still null.
+        if (!this._isInitialized()) {
+            return;
+        }
         this._tree.collapseAll({silent: true});
     }
 
     expandAll() {
+        if (!this._isInitialized()) {
+            return;
+        }
         this._tree.expandAll({silent: true});
     }
 
     searchInput(event) {
+        if (!this._isInitialized()) {
+            return;
+        }
+
         const data = event.target.value;
         //Do nothing if no data was passed
 
-        const tree = this.treeTarget;
         this._tree.collapseAll({silent: true});
         this._tree.search(data);
 

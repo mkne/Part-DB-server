@@ -25,7 +25,6 @@ namespace App\Services\Attachments;
 use App\Settings\SystemSettings\AttachmentsSettings;
 use Imagine\Exception\RuntimeException;
 use App\Entity\Attachments\Attachment;
-use InvalidArgumentException;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Psr\Log\LoggerInterface;
 use function strlen;
@@ -102,6 +101,11 @@ class AttachmentURLGenerator
 
         if ($this->attachmentsSettings->showHTMLAttachments && $attachment->isLocalHTMLFile()) {
             return $this->urlGenerator->generate('attachment_html_sandbox', ['id' => $attachment->getID()]);
+        }
+
+        //3D models can not be displayed by the browser itself, so serve the interactive viewer instead
+        if ($attachment->is3DModel()) {
+            return $this->urlGenerator->generate('attachment_3d_viewer', ['id' => $attachment->getID()]);
         }
 
         $asset_path = $this->absolutePathToAssetPath($absolute_path);

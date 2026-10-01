@@ -26,6 +26,7 @@ use App\DataTables\Adapters\TwoStepORMAdapter;
 use App\DataTables\Column\EntityColumn;
 use App\DataTables\Column\EnumColumn;
 use App\DataTables\Column\HTMLColumn;
+use App\DataTables\Column\IconLinkColumn;
 use App\DataTables\Column\LocaleDateTimeColumn;
 use App\DataTables\Column\MarkdownColumn;
 use App\DataTables\Helpers\PartDataTableHelper;
@@ -33,7 +34,6 @@ use App\Doctrine\Helpers\FieldHelper;
 use App\Entity\Parts\ManufacturingStatus;
 use App\Entity\Parts\Part;
 use App\Entity\ProjectSystem\ProjectBOMEntry;
-use App\Services\ElementTypeNameGenerator;
 use App\Services\EntityURLGenerator;
 use App\Services\Formatters\AmountFormatter;
 use App\Services\Formatters\MoneyFormatter;
@@ -47,6 +47,8 @@ use Omines\DataTablesBundle\Adapter\Doctrine\ORM\SearchCriteriaProvider;
 use Omines\DataTablesBundle\Column\TextColumn;
 use Omines\DataTablesBundle\DataTable;
 use Omines\DataTablesBundle\DataTableTypeInterface;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterface
@@ -58,6 +60,8 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
         protected PartDataTableHelper $partDataTableHelper,
         protected ProjectBuildHelper $projectBuildHelper,
         protected MoneyFormatter $moneyFormatter,
+        protected Security $security,
+        protected UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
@@ -86,7 +90,6 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
                 'label' => $this->translator->trans('part.table.id'),
                 'visible' => false,
             ])
-
             ->add('quantity', TextColumn::class, [
                 'label' => $this->translator->trans('project.bom.quantity'),
                 'className' => 'text-center',
@@ -174,6 +177,27 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
                 },
             ])
 
+            ->add('partCustomState', HTMLColumn::class, [
+                'label' => $this->translator->trans('part.table.partCustomState'),
+                'orderField' => 'NATSORT(partCustomState.name)',
+                'visible' => false,
+                'data' => fn (ProjectBOMEntry $context): string
+                    => $this->partDataTableHelper->renderPartCustomState($context->getPart()?->getPartCustomState()),
+            ])
+
+            ->add('supplier_available_amount', HTMLColumn::class, [
+                'label' => $this->translator->trans('part.table.supplier_available_amount'),
+                //Hidden by default, as the stock of a supplier is only interesting while actually ordering the BOM
+                'visible' => false,
+                //The stock is spread over the orderdetails of the part, so it can not be sorted by in the database
+                'orderable' => false,
+                'data' => function (ProjectBOMEntry $context): string {
+                    $part = $context->getPart();
+
+                    return $part === null ? '' : $this->partDataTableHelper->renderSupplierAvailableAmount($part);
+                },
+            ])
+
             ->add('mountnames', HTMLColumn::class, [
                 'label' => 'project.bom.mountnames',
                 'data' => function (ProjectBOMEntry $context) {
@@ -241,6 +265,16 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
                 'label' => $this->translator->trans('part.table.lastModified'),
                 'visible' => false,
             ])
+            ->add('edit', IconLinkColumn::class, [
+                'label' => $this->translator->trans('part.table.edit'),
+                'className' => 'no-colvis no-export',
+                'href' => fn(mixed $value, ProjectBOMEntry $context): string => $this->urlGenerator->generate(
+                    'project_bom_entry_edit',
+                    ['id' => $options['project']->getId(), 'bomEntry' => $context->getId()]
+                ),
+                'disabled' => fn(mixed $value, ProjectBOMEntry $context): bool => !$this->security->isGranted('edit', $context),
+                'title' => $this->translator->trans('part.table.edit.title'),
+            ])
         ;
 
         $dataTable->addOrderBy('name', DataTable::SORT_ASCENDING);
@@ -300,6 +334,7 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
             ->addSelect('footprint')
             ->addSelect('manufacturer')
             ->addSelect('partCustomState')
+            ->addSelect('orderdetails')
             ->from(ProjectBOMEntry::class, 'bom_entry')
             ->leftJoin('bom_entry.part', 'part')
             ->leftJoin('part.category', 'category')
@@ -308,6 +343,7 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
             ->leftJoin('part.footprint', 'footprint')
             ->leftJoin('part.manufacturer', 'manufacturer')
             ->leftJoin('part.partCustomState', 'partCustomState')
+            ->leftJoin('part.orderdetails', 'orderdetails')
             ->where('bom_entry.id IN (:ids)')
             ->setParameter('ids', $ids)
             ->addGroupBy('bom_entry')
@@ -318,6 +354,7 @@ final readonly class ProjectBomEntriesDataTable implements DataTableTypeInterfac
             ->addGroupBy('footprint')
             ->addGroupBy('manufacturer')
             ->addGroupBy('partCustomState')
+            ->addGroupBy('orderdetails')
 
             ->setHint(Query::HINT_READ_ONLY, true)
             ->setHint(Query::HINT_FORCE_PARTIAL_LOAD, false)

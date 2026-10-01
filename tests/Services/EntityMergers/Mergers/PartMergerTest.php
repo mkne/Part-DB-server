@@ -22,6 +22,8 @@ declare(strict_types=1);
  */
 namespace App\Tests\Services\EntityMergers\Mergers;
 
+use App\Entity\Attachments\AttachmentType;
+use App\Entity\Attachments\PartAttachment;
 use App\Entity\Parts\AssociationType;
 use App\Entity\Parts\Category;
 use App\Entity\Parts\Footprint;
@@ -31,7 +33,10 @@ use App\Entity\Parts\Part;
 use App\Entity\Parts\PartAssociation;
 use App\Entity\Parts\PartCustomState;
 use App\Entity\Parts\PartLot;
+use App\Entity\Parts\Supplier;
 use App\Entity\PriceInformations\Orderdetail;
+use App\Entity\ProjectSystem\Project;
+use App\Entity\ProjectSystem\ProjectBOMEntry;
 use App\Services\EntityMergers\Mergers\PartMerger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -188,11 +193,308 @@ final class PartMergerTest extends KernelTestCase
         $this->assertSame($merged, $clone4->getPart());
 
     }
+    
+    public function testMergeOfProjectBomEntries(): void
+    {
+        $projectA = (new Project())->setName('Project A');
+        $projectB = (new Project())->setName('Project B');
+        $projectC = (new Project())->setName('Project C');
+
+        $part1 = (new Part())->setName('Part 1');
+        $part2 = (new Part())->setName('Part 2');
+
+        //Part 1 is used in project A
+        $entryA = (new ProjectBOMEntry())->setQuantity(2.0);
+        $projectA->addBomEntry($entryA);
+        $part1->addProjectBomEntry($entryA);
+
+        //Part 2 is used in project B and project C
+        $entryB = (new ProjectBOMEntry())->setQuantity(3.0);
+        $entryC = (new ProjectBOMEntry())->setQuantity(5.0);
+        $projectB->addBomEntry($entryB);
+        $projectC->addBomEntry($entryC);
+        $part2->addProjectBomEntry($entryB);
+        $part2->addProjectBomEntry($entryC);
+
+        $merged = $this->merger->merge($part1, $part2);
+        $this->assertSame($merged, $part1);
+
+        //The merged part should now be used in all 3 projects
+        $this->assertCount(3, $merged->getProjectBomEntries());
+        //Project A was already using the target part, so its entry is untouched
+        $this->assertSame($entryA, $merged->getProjectBomEntries()->get(0));
+        $this->assertCount(1, $projectA->getBomEntries());
+        $this->assertSame($entryA, $projectA->getBomEntries()->first());
+
+        //The project B/C BOM entries are not cloned, they are just re-pointed to the target part in place
+        $this->assertSame($entryB, $merged->getProjectBomEntries()->get(1));
+        $this->assertSame($entryC, $merged->getProjectBomEntries()->get(2));
+        $this->assertSame($projectB, $entryB->getProject());
+        $this->assertSame($projectC, $entryC->getProject());
+        $this->assertSame($merged, $entryB->getPart());
+        $this->assertSame($merged, $entryC->getPart());
+
+        //The projects' BOM entry collections are untouched, since the entry itself now just points to the new part
+        $this->assertCount(1, $projectB->getBomEntries());
+        $this->assertSame($entryB, $projectB->getBomEntries()->first());
+
+        $this->assertCount(1, $projectC->getBomEntries());
+        $this->assertSame($entryC, $projectC->getBomEntries()->first());
+
+        //The other part must no longer reference the migrated entries in memory, so a subsequent deletion of it
+        //(via the part-deletion listener) doesn't unlink/rename them again
+        $this->assertCount(0, $part2->getProjectBomEntries());
+    }
+
+    public function testMergeOfProjectBomEntriesSameProjectQuantitiesAreSummed(): void
+    {
+        $project = (new Project())->setName('Shared project');
+
+        $part1 = (new Part())->setName('Part 1');
+        $part2 = (new Part())->setName('Part 2');
+
+        $entry1 = (new ProjectBOMEntry())->setQuantity(2.0)
+            ->setName('name1')->setMountnames('U1,U2')->setComment('comment1');
+        $entry2 = (new ProjectBOMEntry())->setQuantity(4.0)
+            ->setName('name2')->setMountnames('U3,U4')->setComment('comment2');
+        $project->addBomEntry($entry1);
+        $project->addBomEntry($entry2);
+        $part1->addProjectBomEntry($entry1);
+        $part2->addProjectBomEntry($entry2);
+
+        $merged = $this->merger->merge($part1, $part2);
+
+        //The old, now-redundant BOM entry should have been removed from the project
+        $this->assertCount(1, $project->getBomEntries());
+        $this->assertSame($entry1, $project->getBomEntries()->first());
+
+        //Both entries reference the same project, so they should be merged into a single entry with summed quantity
+        $this->assertCount(1, $merged->getProjectBomEntries());
+        $mergedEntry = $merged->getProjectBomEntries()->get(0);
+        $this->assertSame(6.0, $mergedEntry->getQuantity());
+        //The names, mountnames and comments should be merged too, so no information is lost
+        $this->assertSame('name1 / name2', $mergedEntry->getName());
+        $this->assertSame('U1,U2,U3,U4', $mergedEntry->getMountnames());
+        $this->assertSame("comment1 / comment2", $mergedEntry->getComment());
+    }
+
+    public function testMergeOfAttachmentsWithExternalPath(): void
+    {
+        $attachmentType = new AttachmentType();
+
+        $existingExternalAttachment = (new PartAttachment())
+            ->setName('datasheet')
+            ->setAttachmentType($attachmentType)
+            ->setExternalPath('https://example.invalid/datasheet.pdf')
+            // Simulate the generated local path of a downloaded attachment.
+            ->setInternalPath('%MEDIA%/part/1/datasheet-old-random.pdf');
+
+        $existingLocalAttachment = (new PartAttachment())
+            ->setName('local-file')
+            ->setAttachmentType($attachmentType)
+            ->setInternalPath('%MEDIA%/part/1/local-file.pdf');
+
+        $part1 = (new Part())
+            ->addAttachment($existingExternalAttachment)
+            ->addAttachment($existingLocalAttachment);
+
+        $updatedExternalAttachment = (new PartAttachment())
+            ->setName('datasheet')
+            ->setAttachmentType($attachmentType)
+            ->setExternalPath('https://example.invalid/datasheet.pdf')
+            // A different generated path must not create a duplicate.
+            ->setInternalPath('%MEDIA%/part/1/datasheet-new-random.pdf');
+
+        $sameLocalAttachment = (new PartAttachment())
+            ->setName('local-file')
+            ->setAttachmentType($attachmentType)
+            ->setInternalPath('%MEDIA%/part/1/local-file.pdf');
+
+        $differentLocalAttachment = (new PartAttachment())
+            ->setName('different-local-file')
+            ->setAttachmentType($attachmentType)
+            ->setInternalPath('%MEDIA%/part/1/different-local-file.pdf');
+
+        $differentNameAttachment = (new PartAttachment())
+            ->setName('manual')
+            ->setAttachmentType($attachmentType)
+            ->setExternalPath('https://example.invalid/datasheet.pdf')
+            ->setInternalPath('%MEDIA%/part/1/manual-random.pdf');
+
+        $part2 = (new Part())
+            ->addAttachment($updatedExternalAttachment)
+            ->addAttachment($sameLocalAttachment)
+            ->addAttachment($differentLocalAttachment)
+            ->addAttachment($differentNameAttachment);
+
+        $merged = $this->merger->merge($part1, $part2);
+
+        // The matching external and local attachments must not be duplicated.
+        $this->assertCount(4, $merged->getAttachments());
+
+        $this->assertSame(
+            $existingExternalAttachment,
+            $merged->getAttachments()->get(0)
+        );
+        $this->assertSame(
+            $existingLocalAttachment,
+            $merged->getAttachments()->get(1)
+        );
+
+        // Non-matching attachments must still be added.
+        $this->assertSame(
+            $differentLocalAttachment->getInternalPath(),
+            $merged->getAttachments()->get(2)->getInternalPath()
+        );
+        $this->assertSame(
+            $differentNameAttachment->getExternalPath(),
+            $merged->getAttachments()->get(3)->getExternalPath()
+        );
+    }
+
+    public function testMergeOfAttachmentWithChangedExternalUrlIsNotDuplicated(): void
+    {
+        //PartAttachment enforces that name + attachment type must be unique per part (see the UniqueEntity
+        //constraint), so two attachments can never coexist once they share both, no matter their content. Some
+        //providers (e.g. TrustedParts) issue a fresh signed/tracking URL for the very same file on every request,
+        //so comparing the external path in addition to name+type would make the merger try to add a second,
+        //colliding attachment on every refresh, which fails to persist.
+        $attachmentType = new AttachmentType();
+
+        $existingAttachment = (new PartAttachment())
+            ->setName('datasheet')
+            ->setAttachmentType($attachmentType)
+            ->setExternalPath('https://trustedparts.com/productredirect?id=old-token');
+
+        $part1 = (new Part())->addAttachment($existingAttachment);
+
+        $refreshedAttachment = (new PartAttachment())
+            ->setName('datasheet')
+            ->setAttachmentType($attachmentType)
+            ->setExternalPath('https://trustedparts.com/productredirect?id=new-token');
+
+        $part2 = (new Part())->addAttachment($refreshedAttachment);
+
+        $merged = $this->merger->merge($part1, $part2);
+
+        //The two attachments must be merged into one, not kept side by side
+        $this->assertCount(1, $merged->getAttachments());
+        $this->assertSame($existingAttachment, $merged->getAttachments()->get(0));
+        //The stale URL must be refreshed to the new one
+        $this->assertSame('https://trustedparts.com/productredirect?id=new-token', $merged->getAttachments()->get(0)->getExternalPath());
+    }
 
     public function testSupports()
     {
         $this->assertFalse($this->merger->supports(new \stdClass(), new \stdClass()));
         $this->assertFalse($this->merger->supports(new \stdClass(), new Part()));
         $this->assertTrue($this->merger->supports(new Part(), new Part()));
+    }
+
+    public function testMergeOrderdetailsUpdatesTheAvailableAmount(): void
+    {
+        $supplier = new Supplier();
+        $supplier->setName('TestSupplier');
+
+        $target = new Part();
+        $target_orderdetail = new Orderdetail();
+        $target_orderdetail->setSupplier($supplier);
+        $target_orderdetail->setSupplierpartnr('1234');
+        $target_orderdetail->setAvailableAmount(10.0);
+        $target->addOrderdetail($target_orderdetail);
+
+        $other = new Part();
+        $other_orderdetail = new Orderdetail();
+        $other_orderdetail->setSupplier($supplier);
+        $other_orderdetail->setSupplierpartnr('1234');
+        $other_orderdetail->setAvailableAmount(500.0);
+        $other->addOrderdetail($other_orderdetail);
+
+        $merged = $this->merger->merge($target, $other);
+
+        //The stock is volatile, so the newer value has to win here
+        $this->assertCount(1, $merged->getOrderdetails());
+        $this->assertSame(500.0, $merged->getOrderdetails()->first()->getAvailableAmount());
+    }
+
+    public function testMergeOrderdetailsKeepsAvailableAmountIfUnknown(): void
+    {
+        $supplier = new Supplier();
+        $supplier->setName('TestSupplier');
+
+        $target = new Part();
+        $target_orderdetail = new Orderdetail();
+        $target_orderdetail->setSupplier($supplier);
+        $target_orderdetail->setSupplierpartnr('1234');
+        $target_orderdetail->setAvailableAmount(10.0);
+        $target->addOrderdetail($target_orderdetail);
+
+        $other = new Part();
+        $other_orderdetail = new Orderdetail();
+        $other_orderdetail->setSupplier($supplier);
+        $other_orderdetail->setSupplierpartnr('1234');
+        //The other side does not know the stock
+        $other->addOrderdetail($other_orderdetail);
+
+        $merged = $this->merger->merge($target, $other);
+
+        //An unknown stock must not overwrite a known one
+        $this->assertSame(10.0, $merged->getOrderdetails()->first()->getAvailableAmount());
+    }
+
+    public function testMergeOrderdetailsKeepsTheNewerAvailableAmount(): void
+    {
+        $supplier = new Supplier();
+        $supplier->setName('TestSupplier');
+
+        $now = new \DateTimeImmutable();
+
+        $target = new Part();
+        $target_orderdetail = new Orderdetail();
+        $target_orderdetail->setSupplier($supplier);
+        $target_orderdetail->setSupplierpartnr('1234');
+        $target_orderdetail->setAvailableAmount(10.0, $now);
+        $target->addOrderdetail($target_orderdetail);
+
+        $other = new Part();
+        $other_orderdetail = new Orderdetail();
+        $other_orderdetail->setSupplier($supplier);
+        $other_orderdetail->setSupplierpartnr('1234');
+        //The other side knows a stock, but an older one than the target
+        $other_orderdetail->setAvailableAmount(500.0, $now->modify('-1 day'));
+        $other->addOrderdetail($other_orderdetail);
+
+        $merged = $this->merger->merge($target, $other);
+
+        //An older stock must not overwrite a newer one
+        $this->assertSame(10.0, $merged->getOrderdetails()->first()->getAvailableAmount());
+        $this->assertEquals($now, $merged->getOrderdetails()->first()->getAvailableAmountUpdatedAt());
+    }
+
+    public function testMergeOrderdetailsTakesOverTheTimeOfTheAvailableAmount(): void
+    {
+        $supplier = new Supplier();
+        $supplier->setName('TestSupplier');
+
+        $retrieved_at = new \DateTimeImmutable('2026-09-01 12:00:00');
+
+        $target = new Part();
+        $target_orderdetail = new Orderdetail();
+        $target_orderdetail->setSupplier($supplier);
+        $target_orderdetail->setSupplierpartnr('1234');
+        $target->addOrderdetail($target_orderdetail);
+
+        $other = new Part();
+        $other_orderdetail = new Orderdetail();
+        $other_orderdetail->setSupplier($supplier);
+        $other_orderdetail->setSupplierpartnr('1234');
+        $other_orderdetail->setAvailableAmount(500.0, $retrieved_at);
+        $other->addOrderdetail($other_orderdetail);
+
+        $merged = $this->merger->merge($target, $other);
+
+        //A stock is only meaningful together with its age, so the time has to travel with the value
+        $this->assertSame(500.0, $merged->getOrderdetails()->first()->getAvailableAmount());
+        $this->assertEquals($retrieved_at, $merged->getOrderdetails()->first()->getAvailableAmountUpdatedAt());
     }
 }

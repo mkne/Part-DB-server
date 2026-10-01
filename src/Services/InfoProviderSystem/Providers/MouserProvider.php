@@ -36,6 +36,7 @@ use App\Entity\Parts\ManufacturingStatus;
 use App\Services\InfoProviderSystem\DTOs\FileDTO;
 use App\Services\InfoProviderSystem\DTOs\PartDetailDTO;
 use App\Services\InfoProviderSystem\DTOs\PriceDTO;
+use App\Services\InfoProviderSystem\DTOs\ProviderInfoDTO;
 use App\Services\InfoProviderSystem\DTOs\PurchaseInfoDTO;
 use App\Settings\InfoProviderSystem\MouserSettings;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -48,6 +49,7 @@ class MouserProvider implements InfoProviderInterface
     private const ENDPOINT_URL = 'https://api.mouser.com/api/v2/search';
 
     public const DISTRIBUTOR_NAME = 'Mouser';
+    public const PROVIDER_KEY = 'mouser';
 
     public function __construct(
         private readonly HttpClientInterface $mouserClient,
@@ -55,20 +57,23 @@ class MouserProvider implements InfoProviderInterface
     ) {
     }
 
-    public function getProviderInfo(): array
+    public function getProviderInfo(): ProviderInfoDTO
     {
-        return [
-            'name' => 'Mouser',
-            'description' => 'This provider uses the Mouser API to search for parts.',
-            'url' => 'https://www.mouser.com/',
-            'disabled_help' => 'Configure the API key in the provider settings to enable.',
-            'settings_class' => MouserSettings::class
-        ];
-    }
-
-    public function getProviderKey(): string
-    {
-        return 'mouser';
+        return new ProviderInfoDTO(
+            key: self::PROVIDER_KEY,
+            name: 'Mouser',
+            description: 'This provider uses the Mouser API to search for parts.',
+            url: 'https://www.mouser.com/',
+            disabledHelp: 'Configure the API key in the provider settings to enable.',
+            settingsClass: MouserSettings::class,
+            capabilities: [
+                ProviderCapabilities::BASIC,
+                ProviderCapabilities::PICTURE,
+                ProviderCapabilities::DATASHEET,
+                ProviderCapabilities::PRICE,
+                ProviderCapabilities::STOCK_LEVEL,
+            ],
+        );
     }
 
     public function isActive(): bool
@@ -196,7 +201,7 @@ class MouserProvider implements InfoProviderInterface
         }
 
         //Manually filter out the part with the correct ID
-        $tmp = array_filter($tmp, fn(PartDetailDTO $part) => $part->provider_id === $id);
+        $tmp = array_filter($tmp, static fn(PartDetailDTO $part) => $part->provider_id === $id);
         if (count($tmp) === 0) {
             throw new \RuntimeException('No part found with ID '.$id);
         }
@@ -206,17 +211,6 @@ class MouserProvider implements InfoProviderInterface
 
         return reset($tmp);
     }
-
-    public function getCapabilities(): array
-    {
-        return [
-            ProviderCapabilities::BASIC,
-            ProviderCapabilities::PICTURE,
-            ProviderCapabilities::DATASHEET,
-            ProviderCapabilities::PRICE,
-        ];
-    }
-
 
     /**
      * @param  ResponseInterface  $response
@@ -251,7 +245,7 @@ class MouserProvider implements InfoProviderInterface
 
 
             $result[] = new PartDetailDTO(
-                provider_key: $this->getProviderKey(),
+                provider_key: self::PROVIDER_KEY,
                 provider_id: $product['MouserPartNumber'],
                 name: $product['ManufacturerPartNumber'],
                 description: $product['Description'],
@@ -267,7 +261,7 @@ class MouserProvider implements InfoProviderInterface
                 datasheets: $this->parseDataSheets($product['DataSheetUrl'] ?? null,
                     $product['MouserPartNumber'] ?? null),
                 vendor_infos: $this->pricingToDTOs($product['PriceBreaks'] ?? [], $product['MouserPartNumber'],
-                    $product['ProductDetailUrl']),
+                    $product['ProductDetailUrl'], $this->parseAvailableAmount($product['AvailabilityInStock'] ?? null)),
                 mass: $mass,
             );
         }
@@ -321,9 +315,11 @@ class MouserProvider implements InfoProviderInterface
      * @param  array  $price_breaks
      * @param  string  $order_number
      * @param  string  $product_url
+     * @param  float|null  $available_amount The amount Mouser has in stock, or null if that is unknown
      * @return PurchaseInfoDTO[]
      */
-    private function pricingToDTOs(array $price_breaks, string $order_number, string $product_url): array
+    private function pricingToDTOs(array $price_breaks, string $order_number, string $product_url,
+        ?float $available_amount = null): array
     {
         $prices = [];
 
@@ -338,8 +334,21 @@ class MouserProvider implements InfoProviderInterface
 
         return [
             new PurchaseInfoDTO(distributor_name: self::DISTRIBUTOR_NAME, order_number: $order_number, prices: $prices,
-                product_url: $product_url)
+                product_url: $product_url, available_amount: $available_amount)
         ];
+    }
+
+    /**
+     * Mouser returns the stock as a string (which can also be empty or contain extra characters).
+     * @return float|null The parsed amount, or null if Mouser did not tell us a usable value
+     */
+    private function parseAvailableAmount(string|int|float|null $availability): ?float
+    {
+        if ($availability === null || $availability === '') {
+            return null;
+        }
+
+        return is_numeric($availability) ? (float) $availability : null;
     }
 
 

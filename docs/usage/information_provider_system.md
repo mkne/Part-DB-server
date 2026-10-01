@@ -197,8 +197,8 @@ again, to establish a new connection.
 The TME provider uses the API of [TME](https://www.tme.eu/) to search for parts and get shopping information from
 them.
 To use it you have to create an account at TME and get an API key on the [TME API page](https://developers.tme.eu/en/).
-You have to generate a new anonymous key there and enter the key and secret in the Part-DB env configuration (see
-below).
+You have to generate a new application and new private key there  and enter the key and secret in the Part-DB env configuration (see
+below). Follow the instructions of [TME](https://developers.tme.eu/en/how-to-start/download) for more informations
 
 The following env configuration options are available:
 
@@ -208,8 +208,6 @@ The following env configuration options are available:
 * `PROVIDER_TME_LANGUAGE`: The language you want to get the descriptions in (`en`, `de` and `pl`) (optional,
   default: `en`)
 * `PROVIDER_TME_COUNTRY`: The country you want to get the prices for (optional, default: `DE`)
-* `PROVIDER_TME_GET_GROSS_PRICES`: If this is set to `1` the prices will be gross prices (including tax), otherwise net
-  prices (optional, default: `0`)
 
 ### Farnell / Element14 / Newark
 
@@ -333,7 +331,43 @@ Once you have the API key, you can configure the Canopy provider in Part-DB usin
 
 * `PROVIDER_CANOPY_API_KEY`: The API key you got from Canopy (mandatory)
 
+### TrustedParts
 
+The TrustedParts provider uses the [TrustedParts.com Inventory API](https://www.trustedparts.com/en/docs/api/trustedparts-api)
+to search for parts. TrustedParts.com is operated by the Electronic Components Industry Association (ECIA) and
+aggregates the offers (stock and prices) of authorized distributors, similar to Octopart. Besides the offers, it also
+provides specifications for many parts, which Part-DB imports as parameters.
+
+Please note that the TrustedParts API does not return any product images, so parts created with this provider have no
+preview image. You can generate one with the built-in component image generator (the button on the image placeholder of
+the part page), which works well with the package information this provider supplies.
+
+The API is free of charge, but you have to
+[request access](https://www.trustedparts.com/en/docs/api/trustedparts-api/credentials) for it: Register an account on
+TrustedParts.com, verify your mail address and request API access on the "Additional Features" tab of your account.
+After your request was approved, you find the company ID and the API key on the "API Key" tab of the "My Account" page.
+
+Please note the [API terms of use](https://www.trustedparts.com/en/docs/api/trustedparts-api/terms-of-use), especially:
+The data may only be used for internal purchasing decisions, must not be published or resold, has to be attributed to
+TrustedParts.com and must not be cached for longer than one week (Part-DB caches the results for four days at most).
+There are also [rate limits](https://www.trustedparts.com/en/docs/api/trustedparts-api/requests), so you should only
+make as many requests as you actually need.
+
+The following env configuration options are available:
+
+* `PROVIDER_TRUSTEDPARTS_COMPANY_ID`: The company ID of your TrustedParts.com account (mandatory)
+* `PROVIDER_TRUSTEDPARTS_API_KEY`: The API key of your TrustedParts.com account (mandatory)
+* `PROVIDER_TRUSTEDPARTS_CURRENCY`: The currency you want to get prices in if available (optional, 3 letter ISO-code,
+  default: `EUR`). Distributors which do not support the requested currency return their prices in their own currency.
+* `PROVIDER_TRUSTEDPARTS_COUNTRY`: The country you want to get the prices for (optional, 2 letter ISO-code, default: `DE`)
+* `PROVIDER_TRUSTEDPARTS_LANGUAGE`: The language the specifications should be translated to. Possible values: `en`,
+  `de`, `es`, `fr`, `it`, `pt`, `ja` (optional, default: `en`)
+* `PROVIDER_TRUSTEDPARTS_SEARCH_LIMIT`: The maximum number of results to return per search (optional, default: `25`)
+* `PROVIDER_TRUSTEDPARTS_IN_STOCK_ONLY`: If set to `1`, only offers of distributors which currently have the part in
+  stock are returned (optional, default: `0`)
+* `PROVIDER_TRUSTEDPARTS_USE_CACHED_DATA`: If set to `1`, TrustedParts.com answers with cached stock and price data
+  instead of querying the distributors in real time. This is faster and does not count against the rate limits, but the
+  data can be outdated (optional, default: `0`)
 
 ### Custom providers
 
@@ -354,3 +388,31 @@ To reduce the number of API calls against the providers, the results are cached:
 If you need a fresh result, you can clear the cache by running `php .\bin\console cache:pool:clear info_provider.cache`
 on the command line.
 The default `php bin/console cache:clear` also clears the result cache, as it clears all caches.
+
+## Rate limiting
+
+Info providers enforce rate limits per account, usually in short windows (TrustedParts, for example, allows 50
+requests per 10 seconds and 150 per minute), and many of them bill per request. Part-DB can easily produce
+bursts above that: a bulk import or an update of many parts walks through them as fast as the network allows.
+
+Part-DB therefore paces its own requests to each provider. The limits are configured under
+*System settings → Info providers → General*:
+
+* **Max. provider requests per 10 seconds** (default 35)
+* **Max. provider requests per minute** (default 120)
+* **Max. wait for a free slot** (default 30 seconds)
+
+Requests are delayed, not rejected - a bulk operation simply takes a little longer. Only if a single request
+would have to wait longer than the configured maximum does it fail, so that a request started from the user
+interface cannot hang indefinitely. Such a failure answers with HTTP 429 and a `Retry-After` header naming the
+seconds until the next free slot, so an automated caller can tell "too fast, come back shortly" apart from a
+real error. Setting a limit to 0 disables that window.
+
+Each provider is counted separately, since the limits belong to a provider account, and cached responses are not
+counted at all - only requests which really reach the provider.
+
+The defaults deliberately stay below what providers allow. The reason is that the provider counts *your account*,
+not Part-DB: if an external script uses the same API credentials (for example a job which maintains parts
+through the API), its requests and Part-DB's add up, and neither side can see the other's count. The remaining
+headroom is what keeps the two from pushing each other over the limit. If you know that nothing else uses the
+account, you can raise the values.

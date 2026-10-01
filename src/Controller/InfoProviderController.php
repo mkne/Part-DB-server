@@ -23,7 +23,6 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Entity\Parts\Manufacturer;
 use App\Entity\Parts\Part;
 use App\Exceptions\OAuthReconnectRequiredException;
 use App\Form\InfoProviderSystem\FromURLFormType;
@@ -33,18 +32,14 @@ use App\Services\InfoProviderSystem\ExistingPartFinder;
 use App\Services\InfoProviderSystem\CreateFromUrlHelper;
 use App\Services\InfoProviderSystem\PartInfoRetriever;
 use App\Services\InfoProviderSystem\ProviderRegistry;
-use App\Services\InfoProviderSystem\Providers\GenericWebProvider;
 use App\Services\InfoProviderSystem\Providers\InfoProviderInterface;
-use App\Settings\AppSettings;
 use App\Settings\InfoProviderSystem\InfoProviderGeneralSettings;
-use Doctrine\ORM\EntityManagerInterface;
 use Jbtronics\SettingsBundle\Form\SettingsFormFactoryInterface;
 use Jbtronics\SettingsBundle\Manager\SettingsManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
-use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\HttpClient\Exception\ClientException;
 use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpFoundation\Request;
@@ -88,7 +83,7 @@ class InfoProviderController extends  AbstractController
         $this->denyAccessUnlessGranted('@info_providers.create_parts');
 
         $providerInstance = $this->providerRegistry->getProviderByKey($provider);
-        $settingsClass = $providerInstance->getProviderInfo()['settings_class'] ?? throw new \LogicException('Provider ' . $provider . ' does not have a settings class defined');
+        $settingsClass = $providerInstance->getProviderInfo()->settingsClass ?? throw new \LogicException('Provider ' . $provider . ' does not have a settings class defined');
 
         //Create a clone of the settings object
         $settings = $this->settingsManager->createTemporaryCopy($settingsClass);
@@ -206,7 +201,7 @@ class InfoProviderController extends  AbstractController
             // modify the array to an array of arrays that has a field for a matching local Part
             // the advantage to use that format even when we don't look for local parts is that we
             // always work with the same interface
-            $results = array_map(function ($result) {return ['dto' => $result, 'localPart' => null];}, $dtos);
+            $results = array_map(static function ($result) {return ['dto' => $result, 'localPart' => null];}, $dtos);
             if(!$update_target) {
                 foreach ($results as $index => $result) {
                     $results[$index]['localPart'] = $this->existingPartFinder->findFirstExisting($result['dto']);
@@ -223,7 +218,7 @@ class InfoProviderController extends  AbstractController
     }
 
     #[Route('/from_url', name: 'info_providers_from_url')]
-    public function fromURL(Request $request, CreateFromUrlHelper $fromUrlHelper): Response
+    public function fromURL(Request $request, CreateFromUrlHelper $fromUrlHelper, LoggerInterface $exceptionLogger): Response
     {
         $this->denyAccessUnlessGranted('@info_providers.create_parts');
 
@@ -276,6 +271,11 @@ class InfoProviderController extends  AbstractController
                 }
             } catch (ExceptionInterface $e) {
                 $this->addFlash('error', t('info_providers.search.error.general_exception', ['%type%' => (new \ReflectionClass($e))->getShortName()]));
+            } catch (\RuntimeException $e) {
+                //Same handling as the search page: a provider which rejects the request (an unknown model or an
+                //exhausted quota, for example) is a normal outcome here and has to be shown, not turned into a 500
+                $this->addFlash('error', t('info_providers.search.error.general_exception', ['%type%' => (new \ReflectionClass($e))->getShortName()]));
+                $exceptionLogger->error('Error while creating a part from an URL: '.$e->getMessage(), ['exception' => $e]);
             }
         }
 

@@ -37,7 +37,6 @@ use App\Entity\Parts\Supplier;
 use App\Entity\PriceInformations\Currency;
 use App\Entity\PriceInformations\Orderdetail;
 use App\Entity\PriceInformations\Pricedetail;
-use App\Repository\Parts\CategoryRepository;
 use App\Services\InfoProviderSystem\DTOs\FileDTO;
 use App\Services\InfoProviderSystem\DTOs\ParameterDTO;
 use App\Services\InfoProviderSystem\DTOs\PartDetailDTO;
@@ -117,6 +116,9 @@ final class DTOtoEntityConverter
         }
 
         $entity->setPricesIncludesVAT($dto->prices_include_vat);
+        //The stock is stamped with the current time. The DTO can come from the info provider cache, so the value can
+        //be up to a few days older than that - which is precise enough to tell a fresh stock from a stale one.
+        $entity->setAvailableAmount($dto->available_amount);
 
         return $entity;
     }

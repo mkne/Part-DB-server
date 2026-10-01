@@ -23,7 +23,6 @@ declare(strict_types=1);
 
 namespace App\Entity\PriceInformations;
 
-use Doctrine\Common\Collections\Criteria;
 use ApiPlatform\Doctrine\Common\Filter\DateFilterInterface;
 use ApiPlatform\Doctrine\Orm\Filter\BooleanFilter;
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
@@ -50,9 +49,9 @@ use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use SortDirection;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Serializer\Annotation\Groups;
-use Symfony\Component\Serializer\Annotation\SerializedName;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Constraints\Length;
 
@@ -63,7 +62,7 @@ use Symfony\Component\Validator\Constraints\Length;
 #[ORM\Entity]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Table('`orderdetails`')]
-#[ORM\Index(columns: ['supplierpartnr'], name: 'orderdetails_supplier_part_nr')]
+#[ORM\Index(name: 'orderdetails_supplier_part_nr', columns: ['supplierpartnr'])]
 #[ApiResource(
     operations: [
         new Get(security: 'is_granted("read", object)'),
@@ -74,8 +73,8 @@ use Symfony\Component\Validator\Constraints\Length;
         new GetCollection(
             uriTemplate: '/parts/{id}/orderdetails.{_format}',
             uriVariables: ['id' => new Link(toProperty: 'part', fromClass: Part::class)],
-            normalizationContext: ['groups' => ['orderdetail:read', 'pricedetail:read', 'api:basic:read'], 'openapi_definition_name' => 'Read'],
             openapi: new Operation(summary: 'Retrieves the orderdetails of a part.'),
+            normalizationContext: ['groups' => ['orderdetail:read', 'pricedetail:read', 'api:basic:read'], 'openapi_definition_name' => 'Read'],
             security: 'is_granted("@parts.read")'
         ),
     ],
@@ -97,8 +96,8 @@ class Orderdetail extends AbstractDBElement implements TimeStampableInterface, N
      */
     #[Assert\Valid]
     #[Groups(['extended', 'full', 'import', 'orderdetail:read', 'orderdetail:write'])]
-    #[ORM\OneToMany(mappedBy: 'orderdetail', targetEntity: Pricedetail::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
-    #[ORM\OrderBy(['min_discount_quantity' => Criteria::ASC])]
+    #[ORM\OneToMany(targetEntity: Pricedetail::class, mappedBy: 'orderdetail', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['min_discount_quantity' => SortDirection::Ascending])]
     protected Collection $pricedetails;
 
     /**
@@ -132,6 +131,25 @@ class Orderdetail extends AbstractDBElement implements TimeStampableInterface, N
     protected string $supplier_product_url = '';
 
     /**
+     * @var float|null The amount of parts the supplier had in stock, when this value was last retrieved from an info
+     * provider. Null means that the stock is unknown, which is something different than a stock of 0.
+     * This value is written by the info provider system only: a stock is volatile and is only meaningful together
+     * with the time it was retrieved at (see $available_amount_updated_at), so it can not be edited by hand.
+     */
+    #[Assert\PositiveOrZero]
+    #[Groups(['extended', 'full', 'orderdetail:read'])]
+    #[ORM\Column(type: Types::FLOAT, nullable: true, options: ['default' => null])]
+    protected ?float $available_amount = null;
+
+    /**
+     * @var \DateTimeImmutable|null The time the available amount was retrieved from the info provider at, or null if
+     * no stock was ever retrieved for this orderdetail. Always set together with $available_amount.
+     */
+    #[Groups(['extended', 'full', 'orderdetail:read'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true, options: ['default' => null])]
+    protected ?\DateTimeImmutable $available_amount_updated_at = null;
+
+    /**
      * @var Part|null The part with which this orderdetail is associated
      */
     #[Assert\NotNull]
@@ -146,7 +164,7 @@ class Orderdetail extends AbstractDBElement implements TimeStampableInterface, N
     #[Assert\NotNull(message: 'validator.orderdetail.supplier_must_not_be_null')]
     #[Groups(['extended', 'full', 'import', 'orderdetail:read', 'orderdetail:write'])]
     #[ORM\ManyToOne(targetEntity: Supplier::class, inversedBy: 'orderdetails')]
-    #[ORM\JoinColumn(name: 'id_supplier')]
+    #[ORM\JoinColumn(name: 'id_supplier', nullable: false)]
     protected ?Supplier $supplier = null;
 
     /**
@@ -375,6 +393,36 @@ class Orderdetail extends AbstractDBElement implements TimeStampableInterface, N
     public function setObsolete(bool $new_obsolete): self
     {
         $this->obsolete = $new_obsolete;
+
+        return $this;
+    }
+
+    /**
+     * Returns the amount of parts the supplier had in stock when it was last retrieved from the info provider,
+     * or null if no stock is known. Use getAvailableAmountUpdatedAt() to find out how old that value is.
+     */
+    public function getAvailableAmount(): ?float
+    {
+        return $this->available_amount;
+    }
+
+    /**
+     * Returns the time the available amount was retrieved at, or null if no stock is known.
+     */
+    public function getAvailableAmountUpdatedAt(): ?\DateTimeImmutable
+    {
+        return $this->available_amount_updated_at;
+    }
+
+    /**
+     * Sets the amount of parts the supplier has in stock. A stock is only meaningful together with the time it was
+     * retrieved at, so both are always set together: pass the time the value was retrieved from the provider at
+     * (defaults to now), or pass null as amount to state that the stock is unknown again.
+     */
+    public function setAvailableAmount(?float $available_amount, ?\DateTimeImmutable $updated_at = null): self
+    {
+        $this->available_amount = $available_amount;
+        $this->available_amount_updated_at = $available_amount === null ? null : ($updated_at ?? new \DateTimeImmutable());
 
         return $this;
     }

@@ -32,7 +32,6 @@ use App\Services\Trees\NodesListBuilder;
 use App\Settings\BehaviorSettings\TableSettings;
 use App\Settings\SystemSettings\AttachmentsSettings;
 use Omines\DataTablesBundle\DataTableFactory;
-use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -75,6 +74,27 @@ class AttachmentFileController extends AbstractController
         $response->headers->set('X-Frame-Options', 'DENY');
 
         return $response;
+    }
+
+    /**
+     * Show the attachment in an interactive 3D model viewer.
+     */
+    #[Route(path: '/attachment/{id}/3d', name: 'attachment_3d_viewer')]
+    public function modelViewer(Attachment $attachment): Response
+    {
+        $this->checkPermissions($attachment);
+
+        if (!$attachment->hasInternal()) {
+            throw $this->createNotFoundException('The file for this attachment is external and not stored locally!');
+        }
+
+        if (!$attachment->is3DModel()) {
+            throw $this->createNotFoundException('The file associated with this attachment is not a supported 3D model!');
+        }
+
+        return $this->render('attachments/model_viewer.html.twig', [
+            'attachment' => $attachment,
+        ]);
     }
 
     /**

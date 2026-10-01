@@ -22,7 +22,6 @@ declare(strict_types=1);
 
 namespace App\Entity\PriceInformations;
 
-use Doctrine\Common\Collections\Criteria;
 use ApiPlatform\Doctrine\Common\Filter\DateFilterInterface;
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
@@ -50,8 +49,9 @@ use Brick\Math\RoundingMode;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use SortDirection;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -62,8 +62,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity('iso_code')]
 #[ORM\Entity(repositoryClass: CurrencyRepository::class)]
 #[ORM\Table(name: 'currencies')]
-#[ORM\Index(columns: ['name'], name: 'currency_idx_name')]
-#[ORM\Index(columns: ['parent_id', 'name'], name: 'currency_idx_parent_name')]
+#[ORM\Index(name: 'currency_idx_name', columns: ['name'])]
+#[ORM\Index(name: 'currency_idx_parent_name', columns: ['parent_id', 'name'])]
 #[ApiResource(
     operations: [
         new Get(security: 'is_granted("read", object)'),
@@ -111,8 +111,8 @@ class Currency extends AbstractStructuralDBElement
     #[ORM\Column(type: Types::STRING)]
     protected string $iso_code = "";
 
-    #[ORM\OneToMany(mappedBy: 'parent', targetEntity: self::class, cascade: ['persist'])]
-    #[ORM\OrderBy(['name' => Criteria::ASC])]
+    #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent', cascade: ['persist'])]
+    #[ORM\OrderBy(['name' => SortDirection::Ascending])]
     protected Collection $children;
 
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
@@ -125,8 +125,8 @@ class Currency extends AbstractStructuralDBElement
      * @var Collection<int, CurrencyAttachment>
      */
     #[Assert\Valid]
-    #[ORM\OneToMany(mappedBy: 'element', targetEntity: CurrencyAttachment::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
-    #[ORM\OrderBy(['name' => Criteria::ASC])]
+    #[ORM\OneToMany(targetEntity: CurrencyAttachment::class, mappedBy: 'element', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['name' => SortDirection::Ascending])]
     #[Groups(['currency:read', 'currency:write'])]
     protected Collection $attachments;
 
@@ -138,14 +138,14 @@ class Currency extends AbstractStructuralDBElement
     /** @var Collection<int, CurrencyParameter>
      */
     #[Assert\Valid]
-    #[ORM\OneToMany(mappedBy: 'element', targetEntity: CurrencyParameter::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
-    #[ORM\OrderBy(['group' => Criteria::ASC, 'name' => 'ASC'])]
+    #[ORM\OneToMany(targetEntity: CurrencyParameter::class, mappedBy: 'element', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['group' => SortDirection::Ascending, 'name' => SortDirection::Ascending])]
     #[Groups(['currency:read', 'currency:write'])]
     protected Collection $parameters;
 
     /** @var Collection<int, Pricedetail>
      */
-    #[ORM\OneToMany(mappedBy: 'currency', targetEntity: Pricedetail::class)]
+    #[ORM\OneToMany(targetEntity: Pricedetail::class, mappedBy: 'currency')]
     protected Collection $pricedetails;
 
     #[Groups(['currency:read'])]

@@ -48,15 +48,22 @@ To connect KiCad with Part-DB do the following steps:
         "type": "REST_API",
         "api_version": "v1",
         "root_url": "http://kicad-instance.invalid/en/kicad-api/",
-        "token": "THE_GENERATED_API_TOKEN"
+        "token": "THE_GENERATED_API_TOKEN",
+        "timeout_parts_seconds": 60,
+        "timeout_categories_seconds": 600
     }
 }    
 ```
 4. Replace the `root_url` with the URL of your Part-DB instance plus `/en/kicad-api/`. You can find the right value for this in the Part-DB user settings page under "API endpoints" in the "API tokens" panel.
 5. Replace the `token` field value with the token you have generated in step 1.
-6. Open KiCad and add this created file as a library in the KiCad symbol table under (Preferences --> Manage Symbol Libraries)
+6. Open KiCad and add this created file as a HTTP library in the KiCad symbol table under (Preferences --> Manage Symbol Libraries)
 
 If you then place a new part, the library dialog opens, and you should be able to see the categories and parts from Part-DB.
+
+The `timeout_parts_seconds` and `timeout_categories_seconds` values define how long KiCad will cache the parts and categories from Part-DB.
+If you change parts in Part-DB, you need to wait this times until KiCad notices. If you want to see the changes quicker, you can set these values to a lower value (like 5 seconds), 
+but this will increase the load on your Part-DB server, and make KiCad feel slower, as it has to fetch the data more often.
+The `timeout_parts_seconds` is required until detail changes to a single part is seen, the `timeout_categories_seconds` is required until changes to the categories (like new parts, or new categories) are seen.
 
 ### How to associate footprints and symbols with parts
 
@@ -88,6 +95,30 @@ To show more levels of categories, you can set this value to a higher number.
 If you set this value to -1, all parts are shown inside a single category in KiCad, without any subcategories.
 
 You can view the "real" category path of a part in the part details dialog in KiCad.
+
+### Exported symbol fields
+
+Besides the fields KiCad needs (symbol, footprint, reference, value, datasheet, description) Part-DB exports additional
+information as symbol fields: manufacturer and MPN, the Part-DB ID and URL, stock and storage locations, supplier part
+numbers, KiCost compatible fields (`manf`, `manf#`, `<supplier>#`), part info (category, manufacturing status, mass, IPN, ...)
+and the tags as symbol keywords.
+
+KiCad compares the fields of a placed symbol with the library. Every difference is reported as a "library symbol mismatch"
+by the ERC. If you use the stock or supplier fields, every stock booking or supplier edit in Part-DB therefore triggers
+ERC warnings in all schematics that use the part.
+
+To avoid this, you can disable groups of fields that you do not need in your schematics in the server settings under
+"KiCAD integration", or via the following env options (a value of `0` disables the group):
+
+| Option                                | Fields                                                                                           |
+|---------------------------------------|--------------------------------------------------------------------------------------------------|
+| `EDA_KICAD_EXPORT_STOCK_FIELDS`       | `Stock`, `Storage Location`                                                                      |
+| `EDA_KICAD_EXPORT_SUPPLIER_FIELDS`    | `<Supplier> SPN` fields                                                                          |
+| `EDA_KICAD_EXPORT_KICOST_FIELDS`      | `manf`, `manf#`, `<supplier>#`                                                                   |
+| `EDA_KICAD_EXPORT_PART_INFO_FIELDS`   | `Category`, `Manufacturing Status`, `Mass`, `Part-DB IPN`, `Part-DB Footprint`, `Part-DB Unit`, `Part-DB Custom state` |
+| `EDA_KICAD_EXPORT_TAGS_AS_KEYWORDS`   | symbol keywords (from the part tags)                                                             |
+
+All groups are enabled by default, so existing installations keep exporting the same fields as before.
 
 ### Kicad:populate command
 

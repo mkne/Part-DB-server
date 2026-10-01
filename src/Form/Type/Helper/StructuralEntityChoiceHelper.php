@@ -34,10 +34,10 @@ use Symfony\Component\Intl\Currencies;
 use Symfony\Component\OptionsResolver\Options;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-class StructuralEntityChoiceHelper
+readonly class StructuralEntityChoiceHelper
 {
 
-    public function __construct(private readonly AttachmentURLGenerator $attachmentURLGenerator, private readonly TranslatorInterface $translator)
+    public function __construct(private AttachmentURLGenerator $attachmentURLGenerator, private TranslatorInterface $translator)
     {
     }
 
@@ -153,6 +153,6 @@ class StructuralEntityChoiceHelper
             return $this->translator->trans('entity.select.group.new_not_added_to_DB');
         }
 
-        return null;
+        return ""; //Enforce that all other entities are in the same group, which is distinct from the new
     }
 }

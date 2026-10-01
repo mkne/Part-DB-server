@@ -19,7 +19,7 @@
 
 'use strict';
 
-import {Dropdown, Modal, Tooltip} from "bootstrap";
+import {Dropdown, Tooltip} from "bootstrap";
 import ClipboardJS from "clipboard";
 
 class RegisterEventHelper {
@@ -70,7 +70,7 @@ class RegisterEventHelper {
             //Set the dropdown strategy to fixed, so that the dropdowns are not cut off by the overflow: hidden of the body.
             //Solution from: https://github.com/twbs/bootstrap/issues/36560
             const dropdowns = document.querySelectorAll('[data-bs-toggle="dropdown"]');
-            const dropdown = [...dropdowns].map((dropdownToggleEl) => new Dropdown(dropdownToggleEl, {
+            [...dropdowns].map((dropdownToggleEl) => new Dropdown(dropdownToggleEl, {
                 popperConfig(defaultBsPopperConfig) {
                     return { ...defaultBsPopperConfig, strategy: 'fixed' };
                 }
@@ -83,7 +83,7 @@ class RegisterEventHelper {
             document.querySelectorAll('.tooltip').forEach(el => el.remove());
 
             //Exclude dropdown buttons from tooltips, otherwise we run into endless errors from bootstrap (bootstrap.esm.js:614 Bootstrap doesn't allow more than one instance per element. Bound instance: bs.dropdown.)
-            const tooltipSelector = 'a[title], label[title], button[title]:not([data-bs-toggle="dropdown"]), p[title], span[title], h6[title], h3[title], i[title], small[title]';
+            const tooltipSelector = 'a[title], label[title], button[title]:not([data-bs-toggle="dropdown"]), p[title], span[title], h6[title], h3[title], i[title], small[title], div[title]';
             document.querySelectorAll(tooltipSelector).forEach(el => {
                 const existing = Tooltip.getInstance(el);
                 if (existing) {

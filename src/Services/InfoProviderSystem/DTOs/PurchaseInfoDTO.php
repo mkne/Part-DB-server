@@ -40,6 +40,9 @@ readonly class PurchaseInfoDTO
         /** @var string|null An url to the product page of the vendor */
         public ?string $product_url = null,
         ?bool $prices_include_vat = null,
+        /** @var float|null The amount the distributor currently has in stock. Null means that the stock is unknown,
+         * which is something different than a stock of 0. */
+        public ?float $available_amount = null,
     )
     {
         //Ensure that the prices are PriceDTO instances
@@ -51,7 +54,7 @@ readonly class PurchaseInfoDTO
 
         //If no prices_include_vat information is given, try to deduct it from the prices
         if ($prices_include_vat === null) {
-            $vatValues = array_unique(array_map(fn(PriceDTO $price) => $price->includes_tax, $this->prices));
+            $vatValues = array_unique(array_map(static fn(PriceDTO $price) => $price->includes_tax, $this->prices));
             if (count($vatValues) === 1) {
                 $this->prices_include_vat = $vatValues[0]; //Use the value of the prices if they are all the same
             } else {

@@ -171,6 +171,57 @@ final class AttachmentTest extends TestCase
         $this->assertSame($expected, $attachment->isPicture());
     }
 
+    public static function modelDataProvider(): \Iterator
+    {
+        yield [null,                      'https://test.de/model.stl',  false];
+        yield ['%MEDIA%/foo/bar.stl',     '',                           true];
+        yield ['%MEDIA%/foo/bar.STEP',    '',                           true];
+        yield ['%MEDIA%/foo/bar.stp',     '',                           true];
+        yield ['%MEDIA%/foo/bar.glb',     '',                           true];
+        yield ['%MEDIA%/foo/bar.wrl',     '',                           true];
+        //3D models must be stored internally, an additional external source does not matter
+        yield ['%MEDIA%/foo/bar.3mf',     'https://test.de/model.txt',  true];
+        yield ['%MEDIA%/foo/bar.txt',     '',                           false];
+        yield ['%MEDIA%/foo/bar.jpeg',    '',                           false];
+        //x3d was only supported by the removed x3dom viewer and can not be rendered anymore
+        yield ['%MEDIA%/foo/bar.x3d',     '',                           false];
+        yield ['%MEDIA%/foo',             '',                           false];
+    }
+
+    #[DataProvider('modelDataProvider')]
+    public function testIs3DModel(?string $internal_path, ?string $external_path, bool $expected): void
+    {
+        $attachment = new PartAttachment();
+        $this->setProtectedProperty($attachment, 'internal_path', $internal_path);
+        $this->setProtectedProperty($attachment, 'external_path', $external_path);
+        $this->assertSame($expected, $attachment->is3DModel());
+    }
+
+    public static function pictureFiletypeFilterDataProvider(): \Iterator
+    {
+        //An URL without a file extension is only assumed to be a picture, if the attachment type allows pictures
+        yield ['https://invalid.com/redirect?id=1234', '',                  true];
+        yield ['https://invalid.com/redirect?id=1234', 'image/*',           true];
+        yield ['https://invalid.com/redirect?id=1234', '.jpg,.png',         true];
+        yield ['https://invalid.com/redirect?id=1234', 'application/pdf',   false];
+        yield ['https://invalid.com/redirect?id=1234', '.pdf,.txt',         false];
+        //An URL with a picture extension is always a picture, no matter what the attachment type says
+        yield ['https://invalid.com/picture.jpeg',     'application/pdf',   true];
+    }
+
+    #[DataProvider('pictureFiletypeFilterDataProvider')]
+    public function testIsPictureRespectsFiletypeFilter(string $external_path, string $filter, bool $expected): void
+    {
+        $attachment_type = new AttachmentType();
+        $attachment_type->setFiletypeFilter($filter);
+
+        $attachment = new PartAttachment();
+        $attachment->setAttachmentType($attachment_type);
+        $this->setProtectedProperty($attachment, 'external_path', $external_path);
+
+        $this->assertSame($expected, $attachment->isPicture());
+    }
+
     public static function builtinDataProvider(): \Iterator
     {
         yield ['', false];
@@ -180,6 +231,7 @@ final class AttachmentTest extends TestCase
         yield ['/', false];
         yield ['https://google.de', false];
         yield ['%FOOTPRINTS%/foo/bar.txt', true];
+        yield ['%FOOTPRINTS_C%/foo/bar.txt', true];
     }
 
     #[DataProvider('builtinDataProvider')]
@@ -305,5 +357,26 @@ final class AttachmentTest extends TestCase
 
         $this->setProtectedProperty($attachment, 'original_filename', 'test.htm');
         $this->assertTrue($attachment->isLocalHTMLFile());
+    }
+
+    public static function comparableURLProvider(): \Iterator
+    {
+        yield ['https://google.de/test.txt', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt?test=1', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt#test', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt?test=1#test', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt?test=1#test', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt?test=1&test2=2', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt?test=1&test2=2#test', 'https://google.de/test.txt'];
+        yield ['https://google.de/test.txt?test=1&test2=2#test', 'https://google.de/test.txt'];
+        yield ['https://GOOGLE.de/test.txt?test=1&test2=2#test', 'https://google.de/test.txt'];
+    }
+
+    #[DataProvider('comparableURLProvider')]
+    public function testGetComparableURL(string $input, string $output): void
+    {
+        $attachment = new PartAttachment();
+        $attachment->setExternalPath($input);
+        $this->assertSame($output, $attachment->getComparableURL());
     }
 }
